@@ -1,8 +1,5 @@
-use crate::instance::{
-    ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
-    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance,
-};
-use crate::util::Time;
+use crate::instance::{ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance, ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance, TimelineObjectResolved};
+use crate::util::{Time, TimelineObject};
 use std::collections::HashMap;
 use std::iter::Map;
 use std::thread::current;
@@ -21,6 +18,7 @@ pub struct NextEvent {
     pub objectId: String,
 }
 
+/*
 pub struct ResolveOptions {
     // TODO
 }
@@ -28,30 +26,25 @@ pub struct ResolveOptions {
 pub struct ResolveStatistics {
     // TODO
 }
-
+*/
 
 pub struct ResolvedTimeline {
     // TODO
-    pub options: ResolveOptions,
+    // pub options: ResolveOptions,
     /** Map of all objects on timeline */
     pub objects: HashMap<String, ResolvedTimelineObject>,
     /** Map of all classes on timeline, maps className to object ids */
     pub classes: HashMap<String, Vec<String>>,
     /** Map of the object ids, per layer */
     pub layers: HashMap<String, Vec<String>>,
-    pub statistics: ResolveStatistics,
+    // pub statistics: ResolveStatistics,
 }
 
-/*
 pub struct ResolvedTimelineObject {
-    pub id: String,
-    // TODO
-    pub isSelfReferencing: bool,
-    pub resolving: bool,
-    pub resolved: bool,
-    pub resolved_instances: Vec<TimelineObjectInstance>, // TODO
+    pub object: TimelineObject,
+    pub resolved: TimelineObjectResolved
 }
-*/
+
 
 pub type AllStates = HashMap<String, HashMap<Time, Vec<ResolvedTimelineObjectEntry>>>;
 pub type StateInTime = HashMap<String, ResolvedTimelineObjectInstance>;
