@@ -1,6 +1,7 @@
 mod expression;
+mod instance;
 mod state;
-mod resolver;
+// mod resolver;
 mod util;
 
 //use crate::types::{Expression, ExpressionObj};

@@ -1,8 +1,11 @@
-use std::iter::Map;
+use crate::instance::{
+    ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
+    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance,
+};
+use crate::util::Time;
 use std::collections::HashMap;
+use std::iter::Map;
 use std::thread::current;
-
-pub type Time = u64;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum EventType {
@@ -11,7 +14,6 @@ pub enum EventType {
     KeyFrame = 2,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct NextEvent {
     pub eventType: EventType,
@@ -19,13 +21,14 @@ pub struct NextEvent {
     pub objectId: String,
 }
 
-pub struct ResolveOptions{
+pub struct ResolveOptions {
     // TODO
 }
 
-pub struct ResolveStatistics{
+pub struct ResolveStatistics {
     // TODO
 }
+
 
 pub struct ResolvedTimeline {
     // TODO
@@ -39,80 +42,50 @@ pub struct ResolvedTimeline {
     pub statistics: ResolveStatistics,
 }
 
-pub struct ResolvedTimelineObjectInstanceKeyframe {
-    // TODO
-}
-
-pub struct ResolvedTimelineObjectInstance {
-    // TODO
-}
-
-pub struct Cap {
-    pub id: String, // id of the parent
-    pub start: Time,
-    pub end: Option<Time>,
-}
-pub struct TimelineObjectInstance {
-    /** id of the instance (unique)  */
-    pub id: String,
-    /** if true, the instance starts from the beginning of time */
-    pub isFirst: bool,
-    /** The start time of the instance */
-    pub start: Time,
-    /** The end time of the instance (null = infinite) */
-    pub end: Option<Time>,
-
-    /** The original start time of the instance (if an instance is split or capped, the original start time is retained in here).
-     * If undefined, fallback to .start
-     */
-    pub originalStart: Option<Time>,
-    /** The original end time of the instance (if an instance is split or capped, the original end time is retained in here)
-     * If undefined, fallback to .end
-     */
-    pub originalEnd: Option<Time>,
-
-    /** array of the id of the referenced objects */
-    pub references: Vec<String>,
-
-    /** If set, tells the cap of the parent. The instance will always be capped inside this. */
-    pub caps: Vec<Cap>,
-    /** If the instance was generated from another instance, reference to the original */
-    pub fromInstanceId: Option<String>,
-
-}
-
+/*
 pub struct ResolvedTimelineObject {
     pub id: String,
     // TODO
-
     pub isSelfReferencing: bool,
     pub resolving: bool,
     pub resolved: bool,
     pub resolved_instances: Vec<TimelineObjectInstance>, // TODO
 }
+*/
 
-pub type AllStates = HashMap<String, HashMap<Time, Vec<ResolvedTimelineObjectInstanceKeyframe>>>;
+pub type AllStates = HashMap<String, HashMap<Time, Vec<ResolvedTimelineObjectEntry>>>;
 pub type StateInTime = HashMap<String, ResolvedTimelineObjectInstance>;
 
 pub struct ResolvedStates {
     pub timeline: ResolvedTimeline,
-   pub state: AllStates,
-    pub nextEvents: Vec<NextEvent>,
+    pub state: AllStates,
+    pub next_events: Vec<NextEvent>,
 }
 
 pub struct TimelineState {
     pub time: Time,
     pub layers: StateInTime,
-    pub nextEvents: Vec<NextEvent>,
+    pub next_events: Vec<NextEvent>,
 }
 
-pub fn getState(resolved: ResolvedStates, time: Time, event_limit: usize) -> TimelineState {
-    let nextEvents = resolved.nextEvents.iter().filter(|&e| e.time > time).take(event_limit).cloned().collect::<Vec<_>>();
+pub fn get_state(resolved: ResolvedStates, time: Time, event_limit: usize) -> TimelineState {
+    let event_limit2 = if event_limit == 0 {
+        event_limit
+    } else {
+        usize::MAX
+    };
+    let next_events = resolved
+        .next_events
+        .iter()
+        .filter(|&e| e.time > time)
+        .take(event_limit2)
+        .cloned()
+        .collect::<Vec<_>>();
 
     let mut layers = HashMap::new();
 
     for (layer_id, _) in &resolved.timeline.layers {
-        if let Some(state) = getStateAtTime(&resolved.state, layer_id, &time) {
+        if let Some(state) = get_state_at_time_for_layer(&resolved.state, layer_id, time) {
             layers.insert(layer_id.clone(), state);
         }
     }
@@ -120,11 +93,15 @@ pub fn getState(resolved: ResolvedStates, time: Time, event_limit: usize) -> Tim
     return TimelineState {
         time,
         layers,
-        nextEvents,
-    }
+        next_events,
+    };
 }
 
-fn getStateAtTime(states: &AllStates, layer_id: &str, request_time: &Time) -> Option<ResolvedTimelineObjectInstance> {
+fn get_state_at_time_for_layer(
+    states: &AllStates,
+    layer_id: &str,
+    request_time: Time,
+) -> Option<ResolvedTimelineObjectInstance> {
     if let Some(layer_states) = states.get(layer_id) {
         let layer_contents = {
             let mut tmp = layer_states.iter().collect::<Vec<_>>();
@@ -132,39 +109,34 @@ fn getStateAtTime(states: &AllStates, layer_id: &str, request_time: &Time) -> Op
             tmp
         };
 
-        let mut best_state = None;
-        let mut is_cloned = false;
+        let mut best_state: Option<ResolvedTimelineObjectInstance> = None;
 
         for (time, current_state_instances) in layer_contents {
-            if time <= request_time {
+            if *time <= request_time {
                 if current_state_instances.len() > 0 {
                     for current_state in current_state_instances {
-                        // if current_state.is_keyframe {
-                        //     // TODO
-                        //     // const keyframe = currentState
-                        //     // if (state && keyframe.resolved.parentId === state.id) {
-                        //     //     if (
-                        //     //         (keyframe.keyframeEndTime || Infinity) > requestTime
-                        //     //     ) {
-                        //     //         if (!isCloned) {
-                        //     //             isCloned = true
-                        //     //             state = {
-                        //     //                 ...state,
-                        //     //                 content: JSON.parse(JSON.stringify(state.content))
-                        //     //             }
-                        //     //         }
-                        //     //         // Apply the keyframe on the state:
-                        //     //         applyKeyframeContent(state.content, keyframe.content)
-                        //     //     }
-                        //     // }
-                        // } else {
-                        //     best_state = current_state;
-                        //     is_cloned = false;
-                        // }
+                        match current_state {
+                            ResolvedTimelineObjectEntry::Instance(instance) => {
+                                best_state = Some(instance.clone());
+                            }
+                            ResolvedTimelineObjectEntry::Keyframe(keyframe) => {
+                                if let Some(ref mut state) = &mut best_state {
+                                    if let Some(parent_id) = &keyframe.instance.resolved.parentId {
+                                        if parent_id.eq(&state.instance.id) {
+                                            if keyframe.keyframeEndTime.unwrap_or(u64::MAX)
+                                                > request_time
+                                            {
+                                                // Apply the keyframe on the state:
+                                                apply_keyframe_content(state, keyframe)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 } else {
                     best_state = None;
-                    is_cloned = false;
                 }
             } else {
                 break;
@@ -175,4 +147,11 @@ fn getStateAtTime(states: &AllStates, layer_id: &str, request_time: &Time) -> Op
     } else {
         None
     }
+}
+
+fn apply_keyframe_content(
+    instance: &mut ResolvedTimelineObjectInstance,
+    keyframe: &ResolvedTimelineObjectInstanceKeyframe,
+) {
+    // TODO
 }
