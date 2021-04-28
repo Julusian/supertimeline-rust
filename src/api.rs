@@ -5,7 +5,28 @@ use crate::instance::TimelineObjectResolved;
 use crate::resolver::resolve_timeline_obj;
 
 fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: ResolvedTimelineObject) {
-    // TODO
+    let obj_id = obj.object.id.clone();
+
+    if let Some(classes) = obj.object.classes {
+        for class in classes {
+            if let Some(existing) = timeline.classes.get_mut(class) {
+               existing.push(obj_id.clone());
+            } else {
+                timeline.classes.insert(class, vec![obj_id.clone()]);
+            }
+        }
+    }
+
+    if obj.layer.len() > 0 {
+        if let Some(existing) = timeline.layers.get_mut(obj.layer) {
+            existing.push(obj_id.clone());
+        } else {
+            timeline.layers.insert(obj.layer, vec![obj_id.clone()]);
+        }
+    }
+
+    // finally move the object
+    timeline.objects.insert(obj_id, obj);
 }
 
 fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &TimelineObject, depth: usize, parent_id: Option<&String>, is_keyframe: bool) {
