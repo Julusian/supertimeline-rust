@@ -12,6 +12,31 @@ lazy_static::lazy_static! {
 }
 
 #[derive(PartialEq, Debug)]
+pub enum ExpressionOperator {
+    And,
+    Or,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder,
+}
+impl Display for ExpressionOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            ExpressionOperator::And => write!(f, "&"),
+            ExpressionOperator::Or => write!(f, "|"),
+            ExpressionOperator::Add =>  write!(f, "+"),
+            ExpressionOperator::Subtract => write!(f, "-"),
+            ExpressionOperator::Multiply => write!(f, "*"),
+            ExpressionOperator::Divide => write!(f, "/"),
+            ExpressionOperator::Remainder => write!(f, "%"),
+        }
+    }
+}
+
+
+#[derive(PartialEq, Debug)]
 pub enum Expression {
     Null,
     Number(i64),
@@ -34,7 +59,8 @@ impl Display for Expression {
 #[derive(PartialEq, Debug)]
 pub struct ExpressionObj {
     pub l: Expression,
-    pub o: String,
+    // pub o: String,
+    pub o: ExpressionOperator,
     pub r: Expression,
 }
 impl ExpressionObj {
@@ -168,6 +194,14 @@ fn ensure_number_polarity(phrase: &mut Vec<WrappedWords>, val: i64) -> i64 {
     }
 }
 
+fn match_operator (str: &str) -> Option<ExpressionOperator> {
+    if str == "&" {
+        Some(ExpressionOperator::Add)
+    } else {
+        None
+    }
+}
+
 fn interpret_words(mut phrase: Vec<WrappedWords>) -> Result<Expression, ExpressionError> {
     if let Some(last_word) = phrase.pop() {
         let mut current_expression = interpret_word(&mut phrase, last_word)?;
@@ -175,22 +209,26 @@ fn interpret_words(mut phrase: Vec<WrappedWords>) -> Result<Expression, Expressi
         while phrase.len() > 0 {
             if let Some(operator) = phrase.pop() {
                 if let WrappedWords::Single(op) = operator {
-                    // Catch any remaining negations
-                    if op == "!" {
-                        current_expression = Expression::Invert(Box::new(current_expression));
-                        continue;
-                    }
+                    if let Some(op2) = match_operator(op) {
+                        // Catch any remaining negations
+                        if op == "!" {
+                            current_expression = Expression::Invert(Box::new(current_expression));
+                            continue;
+                        }
 
-                    let left = phrase
-                        .pop()
-                        .ok_or(ExpressionError::Invalid)
-                        .and_then(|x| interpret_word(&mut phrase, x))?;
-                    current_expression = ExpressionObj {
-                        l: left,
-                        o: op.to_string(),
-                        r: current_expression,
+                        let left = phrase
+                            .pop()
+                            .ok_or(ExpressionError::Invalid)
+                            .and_then(|x| interpret_word(&mut phrase, x))?;
+                        current_expression = ExpressionObj {
+                            l: left,
+                            o: op2,
+                            r: current_expression,
+                        }
+                            .wrap();
+                    } else {
+                        return Err(ExpressionError::InvalidOperator);
                     }
-                    .wrap();
                 } else {
                     return Err(ExpressionError::MissingOperator);
                 }
@@ -214,6 +252,7 @@ pub enum ExpressionError {
     MismatchedParenthesis,
     Invalid,
     MissingOperator,
+    InvalidOperator,
 }
 
 fn wrap_expression(words: Vec<&str>) -> Result<Vec<WrappedWords>, ExpressionError> {
@@ -298,7 +337,7 @@ mod tests {
             interpret_expression_string("1+2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "+".to_string(),
+                o: ExpressionOperator::Add,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -308,7 +347,7 @@ mod tests {
             interpret_expression_string("   1   *   2   ").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "*".to_string(),
+                o: ExpressionOperator::Multiply,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -318,7 +357,7 @@ mod tests {
             interpret_expression_string("1 + 2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "+".to_string(),
+                o: ExpressionOperator::Add,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -328,7 +367,7 @@ mod tests {
             interpret_expression_string("1 - 2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "-".to_string(),
+                o: ExpressionOperator::Subtract,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -338,7 +377,7 @@ mod tests {
             interpret_expression_string("1 * 2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "*".to_string(),
+                o: ExpressionOperator::Multiply,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -348,7 +387,7 @@ mod tests {
             interpret_expression_string("1 / 2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "/".to_string(),
+                o: ExpressionOperator::Divide,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -358,7 +397,7 @@ mod tests {
             interpret_expression_string("1 % 2").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "%".to_string(),
+                o: ExpressionOperator::Remainder,
                 r: Expression::Number(2)
             }
             .wrap()
@@ -368,10 +407,10 @@ mod tests {
             interpret_expression_string("1 + 2 * 3").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "+".to_string(),
+                o: ExpressionOperator::Add,
                 r: ExpressionObj {
                     l: Expression::Number(2),
-                    o: "*".to_string(),
+                    o: ExpressionOperator::Multiply,
                     r: Expression::Number(3)
                 }
                 .wrap()
@@ -398,10 +437,10 @@ mod tests {
             interpret_expression_string("1 * (2 + 3)").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Number(1),
-                o: "*".to_string(),
+                o: ExpressionOperator::Multiply,
                 r: ExpressionObj {
                     l: Expression::Number(2),
-                    o: "+".to_string(),
+                    o: ExpressionOperator::Add,
                     r: Expression::Number(3)
                 }
                 .wrap()
@@ -413,7 +452,7 @@ mod tests {
             interpret_expression_string("#first & #second").expect("Expected success"),
             ExpressionObj {
                 l: Expression::String("#first".to_string()),
-                o: "&".to_string(),
+                o: ExpressionOperator::And,
                 r: Expression::String("#second".to_string())
             }
             .wrap()
@@ -428,11 +467,11 @@ mod tests {
             interpret_expression_string("!thisOne & !(that | !those)").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Invert(Box::new(Expression::String("thisOne".to_string()))),
-                o: "&".to_string(),
+                o:ExpressionOperator::And,
                 r: Expression::Invert(Box::new(
                     ExpressionObj {
                         l: Expression::String("that".to_string()),
-                        o: "|".to_string(),
+                        o: ExpressionOperator::Or,
                         r: Expression::Invert(Box::new(Expression::String("those".to_string()))),
                     }
                     .wrap()
@@ -445,10 +484,10 @@ mod tests {
             interpret_expression_string("(!.classA | !$layer.classB) & #obj").expect("Expected success"),
             ExpressionObj {
                 r: Expression::String("#obj".to_string()),
-                o: "&".to_string(),
+                o: ExpressionOperator::And,
                 l:  ExpressionObj {
                         l: Expression::Invert(Box::new(Expression::String(".classA".to_string()))),
-                        o: "|".to_string(),
+                        o: ExpressionOperator::Or,
                         r: Expression::Invert(Box::new(Expression::String("$layer.classB".to_string()))),
                     }.wrap()
 
@@ -481,10 +520,10 @@ mod tests {
         assert_eq!(wrap_expression(input).unwrap(), expected);
     }
 
-    //    #[test]
-    //    fn wrap_inner_expressions2() {
-    //        let input = vec!["a", "&", "!", "b"];
-    //        let expected = vec![WrappedWords::Single("a"), WrappedWords::Group(vec![WrappedWords::Single("b"), WrappedWords::Single("c")])];
-    //        assert_eq!(wrap_expression(input).unwrap(), expected);
-    //    }
+       #[test]
+       fn wrap_inner_expressions2() {
+           let input = vec!["a", "&", "!", "b"];
+           let expected = vec![WrappedWords::Single("a"), WrappedWords::Single("&"), WrappedWords::Group(vec![WrappedWords::Single(""), WrappedWords::Single("!"), WrappedWords::Single("b")])];
+           assert_eq!(wrap_expression(input).unwrap(), expected);
+       }
 }

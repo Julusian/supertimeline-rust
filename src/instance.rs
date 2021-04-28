@@ -1,5 +1,6 @@
 use crate::util::Time;
 use crate::util::TimelineObject;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub enum ResolvedTimelineObjectEntry {
@@ -69,7 +70,7 @@ pub struct TimelineObjectInstance {
     pub originalEnd: Option<Time>,
 
     /** array of the id of the referenced objects */
-    pub references: Vec<String>,
+    pub references: HashSet<String>,
 
     /** If set, tells the cap of the parent. The instance will always be capped inside this. */
     pub caps: Vec<Cap>,
