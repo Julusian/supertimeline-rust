@@ -155,11 +155,6 @@ fn lookup_expression_str(
     //     }
     // }
 
-    // Look up string
-    let invert = false;
-    let ignoreFirstIfZero = false;
-    let mut referencedObjs: Vec<&state::ResolvedTimelineObject> = Vec::new();
-
     if let Some(expression_references) = match_expression_references(resolved_timeline, expr_str) {
         let mut referencedObjs: Vec<&state::ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
@@ -308,6 +303,8 @@ fn lookup_expression_obj(
         //     r: r.instances
         // };
 
+        let all_references = HashSet::from_iter(l.all_references.iter().chain(r.all_references.iter()).cloned());
+
         if expr.o == ExpressionOperator::And || expr.o == ExpressionOperator::Or {
             let events = {
                 let mut events = Vec::new();
@@ -397,16 +394,45 @@ fn lookup_expression_obj(
                 }
             }
 
-            // let mut all_references = HashSet::new();
-            let all_references = HashSet::from_iter(l.all_references.iter().chain(r.all_references.iter()).cloned());
 
-            return LookupExpressionResult {
+            LookupExpressionResult {
                 instances2: Some(instances),
                 instances: None,
                 all_references,
             }
         } else {
             // TODO
+            let operator = match expr.o {
+                ExpressionOperator::Add => |a, b| Some(TimeWithReference{
+                    value: a.value + b.value,
+                    references: join_references2(&a.references, &b.references),
+                }),
+                ExpressionOperator::Subtract => |a, b| Some(TimeWithReference{
+                    value: a.value - b.value,
+                    references: join_references2(&a.references, &b.references),
+                }),
+                ExpressionOperator::Multiply => |a, b| Some(TimeWithReference{
+                    value: a.value * b.value,
+                    references: join_references2(&a.references, &b.references),
+                }),
+                ExpressionOperator::Divide => |a, b| Some(TimeWithReference{
+                    value: a.value / b.value, // TODO - can this panic?
+                    references: join_references2(&a.references, &b.references),
+                }),
+                ExpressionOperator::Remainder => |a, b| Some(TimeWithReference{
+                    value: a.value % b.value, // TODO - can this panic?
+                    references: join_references2(&a.references, &b.references),
+                }),
+                _ => |a, b| None
+            };
+
+            // TODO
+
+            LookupExpressionResult {
+                instances2: Some(instances),
+                instances: None,
+                all_references,
+            }
         }
     }
 }

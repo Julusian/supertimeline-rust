@@ -42,7 +42,7 @@ pub struct TimelineObjectResolved {
     /** Id of the parent object */
     pub parentId: Option<String>,
     /** True if object is a keyframe */
-    pub isKeyframe: Option<bool>,
+    pub isKeyframe: bool,
     /** True if object is referencing itself (only directly, not indirectly via another object) */
     pub isSelfReferencing: Option<bool>,
     /** Ids of all other objects that directly affects this object (ie through direct reference, classes, etc) */
