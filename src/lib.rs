@@ -1,6 +1,7 @@
 mod api;
 mod expression;
 mod instance;
+mod lookup_expression;
 mod macros;
 mod state;
 mod resolver;

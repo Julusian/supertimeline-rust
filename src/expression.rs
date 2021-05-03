@@ -55,6 +55,12 @@ impl Display for Expression {
     }
 }
 
+pub struct ParsedExpression {
+    pub l: Box<ParsedExpression>,
+    pub o: ExpressionOperator,
+    pub r: Box<ParsedExpression>,
+}
+
 #[derive(PartialEq, Debug)]
 pub struct ExpressionObj {
     pub l: Expression,
@@ -73,13 +79,13 @@ impl Display for ExpressionObj {
     }
 }
 
-pub fn interpret_expression(expression: Expression) -> Result<Expression, ExpressionError> {
+pub fn interpret_expression(expression: &Expression) -> Result<Expression, ExpressionError> {
     match expression {
         Expression::Null => Ok(Expression::Null),
-        Expression::Number(val) => Ok(Expression::Number(val)),
+        Expression::Number(val) => Ok(Expression::Number(*val)),
         Expression::String(val) => interpret_expression_string(&val),
-        Expression::Expression(_) => Ok(expression), // TODO - recurse?
-        Expression::Invert(_) => Ok(expression),     // TODO - recurse?
+        Expression::Expression(_) => Ok(expression.clone()), // TODO - recurse?
+        Expression::Invert(_) => Ok(expression.clone()),     // TODO - recurse?
     }
 }
 

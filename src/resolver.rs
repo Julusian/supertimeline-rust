@@ -1,4 +1,4 @@
-use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
+use crate::expression::{Expression, ExpressionObj, ExpressionOperator, interpret_expression, ExpressionError};
 use crate::instance::TimelineObjectInstance;
 use crate::state;
 use crate::util::{
@@ -8,6 +8,8 @@ use crate::util::{
 use regex::Regex;
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::fmt::Error;
+use crate::lookup_expression::lookup_expression;
 
 lazy_static::lazy_static! {
     static ref MATCH_ID_REGEX: Regex = Regex::new(r"^\W*#([^.]+)(.*)").unwrap();
@@ -73,8 +75,55 @@ fn match_expression_references(
     }
 }
 
+pub enum ResolveError {
+    CircularDependency(String),
+    BadExpression((String, &'static str, ExpressionError))
+}
+
 pub fn resolve_timeline_obj(
     resolved_timeline: &state::ResolvedTimeline,
-    obj: &state::ResolvedTimelineObject,
-) {
+    obj: &mut state::ResolvedTimelineObject,
+) -> Result<(), ResolveError> {
+    if obj.resolved.resolved {
+        Ok(())
+    } else if obj.resolved.resolving {
+        Err(ResolveError.CircularDependency(obj.object.id().to_string()))
+    } else {
+        // TODO
+        obj.resolved.resolving = true;
+
+
+        let mut direct_references = HashSet::new();
+
+        let obj_id = obj.object.id();
+        for enable in obj.object.enable() {
+            let repeating_expr = if let Some(expr) = &enable.repeating {
+                match interpret_expression(expr) {
+                    Ok(val) => val,
+                    Err(err) => return Err(ResolveError::BadExpression((obj_id.to_string(), "repeating", err))),
+                }
+            } else {
+                Expression::Null
+            };
+
+            let looked_repeating = lookup_expression(resolved_timeline, obj, &repeating_expr, &ObjectRefType::Duration);
+            direct_references.extend(looked_repeating.all_references);
+
+            // TODO
+
+
+        }
+
+        // // filter out zero-length instances:
+        // instances = _.filter(instances, (instance) => {
+        //     return ((instance.end || Infinity) > instance.start)
+        // })
+
+        obj.resolved.resolved = true;
+        obj.resolved.resolving = false;
+        obj.resolved.instances = instances;
+        obj.resolved.directReferences = direct_references;
+
+        Ok(())
+    }
 }

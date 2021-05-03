@@ -1,7 +1,7 @@
 use crate::util::TimelineObject;
 use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
 use std::collections::HashMap;
-use crate::instance::TimelineObjectResolved;
+use crate::instance::{TimelineObjectResolved, TimelineEnable};
 use crate::resolver::resolve_timeline_obj;
 
 /*
@@ -12,9 +12,9 @@ pub trait IsTimelineObjectChildren {
 
 pub trait IsTimelineObject /*: IsTimelineObjectChildren */ {
     fn id (&self) -> &str;
-    //fn enable (&self) -> TimelineEnableType;
+    fn enable (&self) -> &Vec<TimelineEnable>;
     fn layer (&self) -> &str;
-    //fn keyframes (&self) -> Option<Vec<TimelineKeyframe>>;
+    fn keyframes (&self) -> Option<&Vec<Box<dyn IsTimelineKeyframe>>>;
     fn classes (&self) -> Option<&Vec<String>>;
     fn disabled (&self) -> bool;
     //fn is_group (&self) -> bool;
@@ -22,9 +22,9 @@ pub trait IsTimelineObject /*: IsTimelineObjectChildren */ {
     fn priority (&self) -> u64;
 }
 
-pub trait IsTimelineKeyframe: Clone {
+pub trait IsTimelineKeyframe {
     fn id (&self) -> &str;
-    //fn enable (&self) -> TimelineEnableType;
+    fn enable (&self) -> &Vec<TimelineEnable>;
     //fn duration (&self) -> Option<TimelineKeyframeDuration>;
     fn classes (&self) -> Option<&Vec<String>>;
     fn disabled (&self) -> bool;
