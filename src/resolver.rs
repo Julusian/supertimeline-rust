@@ -1,4 +1,5 @@
-use crate::events::{convert_events_to_instances, EventForInstance};
+use crate::api::ResolvedTimeline;
+use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::expression::{
     interpret_expression, is_constant, simplify_expression, Expression, ExpressionError,
 };
@@ -30,7 +31,7 @@ pub enum ResolveError {
 }
 
 pub fn resolve_timeline_obj(
-    resolved_timeline: &mut state::ResolvedTimeline,
+    resolved_timeline: &mut ResolvedTimeline,
     obj: &mut state::ResolvedTimelineObject,
 ) -> Result<(), ResolveError> {
     if obj.resolved.resolved {
@@ -338,7 +339,7 @@ pub fn resolve_timeline_obj(
                     }
                 }
 
-                new_instances.extend(convert_events_to_instances(events, false, false));
+                new_instances.extend(events.to_instances(false, false));
             }
 
             if has_parent {

@@ -1,3 +1,4 @@
+use crate::api::ResolvedTimeline;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
     ResolvedTimelineObjectInstanceKeyframe, TimelineEnable, TimelineObjectResolved,
@@ -32,24 +33,6 @@ pub struct ResolveOptions {
     /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
     pub resolveInstanceCollisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
                                          // cache?: ResolverCache
-}
-
-/*
-pub struct ResolveStatistics {
-    // TODO
-}
-*/
-
-pub struct ResolvedTimeline {
-    // TODO
-    pub options: ResolveOptions,
-    /** Map of all objects on timeline */
-    pub objects: HashMap<String, ResolvedTimelineObject>,
-    /** Map of all classes on timeline, maps className to object ids */
-    pub classes: HashMap<String, Vec<String>>,
-    /** Map of the object ids, per layer */
-    pub layers: HashMap<String, Vec<String>>,
-    // pub statistics: ResolveStatistics,
 }
 
 pub struct ResolvedTimelineObject {

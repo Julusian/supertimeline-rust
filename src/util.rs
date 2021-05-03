@@ -1,4 +1,4 @@
-use crate::events::{convert_events_to_instances, EventForInstance};
+use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::{Cap, TimelineObjectInstance};
 use crate::lookup_expression::LookupExpressionResultType;
 use crate::resolver::TimeWithReference;
@@ -8,12 +8,6 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 pub type Time = u64;
-
-#[derive(Debug, Clone)]
-pub struct TimelineObject {
-    // TODO
-    pub id: String,
-}
 
 pub fn getId() -> String {
     // TODO
@@ -127,7 +121,7 @@ pub fn clean_instances(
                 }
             }
 
-            convert_events_to_instances(events, allow_merge, allow_zero_gaps)
+            events.to_instances(allow_merge, allow_zero_gaps)
         }
     }
 }
@@ -212,14 +206,14 @@ fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<Timeli
     }
 }
 
-pub fn operate_on_arrays(
+pub fn operate_on_arrays<T>(
     lookup0: &LookupExpressionResultType,
     lookup1: &LookupExpressionResultType,
-    operate: fn(
-        a: Option<&TimeWithReference>,
-        b: Option<&TimeWithReference>,
-    ) -> Option<TimeWithReference>,
-) -> LookupExpressionResultType {
+    operate: &T,
+) -> LookupExpressionResultType
+where
+    T: Fn(Option<&TimeWithReference>, Option<&TimeWithReference>) -> Option<TimeWithReference>,
+{
     if let Some(lookup0) = get_as_array_to_operate(lookup0) {
         if let Some(lookup1) = get_as_array_to_operate(lookup1) {
             // TODO - both refs shortcut
@@ -411,7 +405,7 @@ pub fn apply_parent_instances(
         operate_on_arrays(
             &LookupExpressionResultType::Instances(parent_instances.clone()),
             value,
-            operate,
+            &operate,
         )
     } else {
         LookupExpressionResultType::Null

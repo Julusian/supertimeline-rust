@@ -1,7 +1,8 @@
 use crate::instance::{TimelineEnable, TimelineObjectResolved};
 use crate::resolver::resolve_timeline_obj;
-use crate::state::{ResolveOptions, ResolvedTimeline, ResolvedTimelineObject};
+use crate::state::{ResolveOptions, ResolvedTimelineObject};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /*
 pub trait IsTimelineObjectChildren {
@@ -134,6 +135,25 @@ fn add_object_to_timeline(
     }
 }
 
+// TODO - this should be split into a result and a context
+pub struct ResolvedTimeline {
+    pub options: ResolveOptions,
+    /** Map of all objects on timeline */
+    pub objects: HashMap<String, ResolvedTimelineObject>,
+    /** Map of all classes on timeline, maps className to object ids */
+    pub classes: HashMap<String, Vec<String>>,
+    /** Map of the object ids, per layer */
+    pub layers: HashMap<String, Vec<String>>,
+    // pub statistics: ResolveStatistics,
+    next_id: AtomicUsize,
+}
+impl ResolvedTimeline {
+    fn get_id(&self) -> String {
+        let index = self.next_id.fetch_add(1, Ordering::Relaxed);
+        format!("{}", index)
+    }
+}
+
 pub fn resolve_timeline(
     timeline: Vec<Box<dyn IsTimelineObject>>,
     options: ResolveOptions,
@@ -143,6 +163,8 @@ pub fn resolve_timeline(
         classes: HashMap::new(),
         layers: HashMap::new(),
         options,
+
+        next_id: AtomicUsize::new(0),
     };
 
     // Step 1: pre-populate resolvedTimeline with objects

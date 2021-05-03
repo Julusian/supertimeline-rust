@@ -1,6 +1,5 @@
 use crate::expression::Expression;
 use crate::util::Time;
-use crate::util::TimelineObject;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -18,7 +17,7 @@ pub struct ResolvedTimelineObjectInstanceKeyframe {
 
 #[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstance {
-    pub object: TimelineObject,
+    // pub object: TimelineObject,
     pub resolved: TimelineObjectResolved,
     pub instance: TimelineObjectInstance,
 }

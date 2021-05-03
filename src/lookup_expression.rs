@@ -1,4 +1,5 @@
-use crate::events::{sort_events, IsEvent};
+use crate::api::ResolvedTimeline;
+use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::{Cap, TimelineObjectInstance};
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
@@ -41,7 +42,7 @@ impl LookupExpressionResult {
 }
 
 pub fn lookup_expression(
-    resolved_timeline: &mut state::ResolvedTimeline,
+    resolved_timeline: &mut ResolvedTimeline,
     obj: &mut state::ResolvedTimelineObject,
     expr: &Expression,
     default_ref_type: &ObjectRefType,
@@ -88,7 +89,7 @@ struct MatchExpressionReferences {
     pub all_references: HashSet<String>,
 }
 fn match_expression_references(
-    resolved_timeline: &state::ResolvedTimeline,
+    resolved_timeline: &ResolvedTimeline,
     expr_str: &str,
 ) -> Option<MatchExpressionReferences> {
     if let Some(id_match) = MATCH_ID_REGEX.captures(expr_str) {
@@ -129,7 +130,7 @@ fn match_expression_references(
 }
 
 fn lookup_expression_str(
-    resolved_timeline: &mut state::ResolvedTimeline,
+    resolved_timeline: &mut ResolvedTimeline,
     obj: &mut state::ResolvedTimelineObject,
     expr_str: &str,
     default_ref_type: &ObjectRefType,
@@ -286,7 +287,7 @@ fn lookup_expression_str(
 }
 
 fn lookup_expression_obj(
-    resolved_timeline: &mut state::ResolvedTimeline,
+    resolved_timeline: &mut ResolvedTimeline,
     obj: &mut state::ResolvedTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
@@ -309,20 +310,22 @@ fn lookup_expression_obj(
                 let mut events = Vec::new();
                 events.extend(get_side_events(&l, true));
                 events.extend(get_side_events(&r, false));
-                sort_events(&mut events);
+                events.sort();
                 events
             };
 
-            let mut left_value = l
-                .instances
-                .and_then(|v| Some(v.value != 0))
-                .unwrap_or(false);
-            let mut right_value = r
-                .instances
-                .and_then(|v| Some(v.value != 0))
-                .unwrap_or(false);
+            let mut left_value = if let LookupExpressionResultType::TimeRef(time_ref) = &l.result {
+                time_ref.value != 0
+            } else {
+                false
+            };
+            let mut right_value = if let LookupExpressionResultType::TimeRef(time_ref) = &r.result {
+                time_ref.value != 0
+            } else {
+                false
+            };
 
-            let calc_result = match &expr.o {
+            let calc_result: fn(a: bool, b: bool) -> bool = match &expr.o {
                 ExpressionOperator::And => |a, b| a && b,
                 ExpressionOperator::Or => |a, b| a || b,
                 _ => |a, b| false,
@@ -399,7 +402,10 @@ fn lookup_expression_obj(
                 all_references,
             }
         } else {
-            let operator = match expr.o {
+            let operator: fn(
+                a: &TimeWithReference,
+                b: &TimeWithReference,
+            ) -> Option<TimeWithReference> = match expr.o {
                 ExpressionOperator::Add => |a, b| {
                     Some(TimeWithReference {
                         value: a.value + b.value,
@@ -433,7 +439,22 @@ fn lookup_expression_obj(
                 _ => |a, b| None,
             };
 
-            let result = operate_on_arrays(&l.result, &r.result, operator);
+            let operator2 = |a: Option<&TimeWithReference>,
+                             b: Option<&TimeWithReference>|
+             -> Option<TimeWithReference> {
+                if let Some(a2) = a {
+                    if let Some(b2) = b {
+                        operator(a2, b2)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
+            let result = operate_on_arrays(&l.result, &r.result, &operator2);
+
             LookupExpressionResult {
                 result,
                 all_references,
