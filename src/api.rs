@@ -1,7 +1,6 @@
 use crate::instance::{TimelineEnable, TimelineObjectResolved};
 use crate::resolver::resolve_timeline_obj;
 use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
-use crate::util::TimelineObject;
 use std::collections::HashMap;
 
 /*

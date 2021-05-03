@@ -1,20 +1,15 @@
 use crate::events::{convert_events_to_instances, EventForInstance};
 use crate::expression::{
-    interpret_expression, Expression, ExpressionError, ExpressionObj, ExpressionOperator,
+    interpret_expression, Expression, ExpressionError, ExpressionOperator,
 };
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
-use crate::state::NextEvent;
 use crate::util::{
-    apply_parent_instances, clean_instances, getId, invert_instances, join_caps, join_references,
-    join_references2, join_references3, join_references4, Time,
+    apply_parent_instances, getId, join_references, Time,
 };
-use regex::Regex;
 use std::cmp::min;
 use std::collections::HashSet;
-use std::fmt::Error;
-use std::iter::FromIterator;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ObjectRefType {

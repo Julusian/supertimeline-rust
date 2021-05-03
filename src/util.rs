@@ -1,10 +1,9 @@
 use crate::instance::{Cap, TimelineObjectInstance};
-use crate::lookup_expression::{LookupExpressionResult, LookupExpressionResultType};
+use crate::lookup_expression::LookupExpressionResultType;
 use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;
-use std::cmp::{max, min, Ordering};
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
 
 pub type Time = u64;
 

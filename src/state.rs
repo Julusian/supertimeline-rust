@@ -1,12 +1,10 @@
 use crate::api::IsTimelineObject;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
-    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance, TimelineObjectResolved,
+    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectResolved,
 };
-use crate::util::{Time, TimelineObject};
+use crate::util::Time;
 use std::collections::HashMap;
-use std::iter::Map;
-use std::thread::current;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum EventType {

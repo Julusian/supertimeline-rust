@@ -34,7 +34,7 @@ impl Display for ExpressionOperator {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     Null,
     Number(i64),
