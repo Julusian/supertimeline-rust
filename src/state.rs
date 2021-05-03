@@ -19,11 +19,22 @@ pub struct NextEvent {
     pub objectId: String,
 }
 
-/*
 pub struct ResolveOptions {
-    // TODO
+    /** The base time to use when resolving. Usually you want to input the current time (Date.now()) here. */
+    pub time: Time,
+    /** Limits the number of repeating objects in the future.
+     * Defaults to 2, which means that the current one and the next will be resolved.
+     */
+    pub limitCount: Option<usize>,
+    /** Limits the repeating objects to a time in the future */
+    pub limitTime: Option<Time>,
+    /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
+    pub resolveInstanceCollisions: bool
+    // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
+    // cache?: ResolverCache
 }
 
+/*
 pub struct ResolveStatistics {
     // TODO
 }
@@ -31,7 +42,7 @@ pub struct ResolveStatistics {
 
 pub struct ResolvedTimeline {
     // TODO
-    // pub options: ResolveOptions,
+    pub options: ResolveOptions,
     /** Map of all objects on timeline */
     pub objects: HashMap<String, ResolvedTimelineObject>,
     /** Map of all classes on timeline, maps className to object ids */

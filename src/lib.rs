@@ -1,8 +1,10 @@
+mod macros;
+
 mod api;
+mod events;
 mod expression;
 mod instance;
 mod lookup_expression;
-mod macros;
 mod state;
 mod resolver;
 mod util;

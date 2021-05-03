@@ -1,26 +1,38 @@
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::TimelineObjectInstance;
 use crate::state;
-use crate::util::{
-    clean_instances, getId, invert_instances, join_caps, join_references, join_references2,
-    join_references3, join_references4, Time
-};
+use crate::util::{clean_instances, getId, invert_instances, join_caps, join_references, join_references2, join_references3, join_references4, Time, operate_on_arrays};
 use regex::Regex;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use crate::resolver::{TimeWithReference, ObjectRefType, resolve_timeline_obj};
+use crate::events::sort_events;
+
+
+lazy_static::lazy_static! {
+    static ref MATCH_ID_REGEX: Regex = Regex::new(r"^\W*#([^.]+)(.*)").unwrap();
+    static ref MATCH_CLASS_REGEX: Regex = Regex::new(r"^\W*\.([^.]+)(.*)").unwrap();
+    static ref MATCH_LAYER_REGEX: Regex = Regex::new(r"^\W*\$([^.]+)(.*)").unwrap();
+}
+
+
+pub enum LookupExpressionResultType {
+    Instances(Vec<TimelineObjectInstance>),
+    TimeRef(TimeWithReference),
+    Null,
+}
 
 pub struct LookupExpressionResult {
     //pub instances: Vec
-    pub instances: Option<TimeWithReference>,
-    pub instances2: Option<Vec<TimelineObjectInstance>>,
+    // pub instances: Option<TimeWithReference>,
+    // pub instances2: Option<Vec<TimelineObjectInstance>>,
+    pub result: LookupExpressionResultType,
     pub all_references: HashSet<String>,
 }
 impl LookupExpressionResult {
     pub fn Null() -> LookupExpressionResult {
         LookupExpressionResult {
-            instances: None,
-            instances2: None,
+            result: LookupExpressionResultType::Null,
             all_references: HashSet::new(),
         }
     }
@@ -35,11 +47,10 @@ pub fn lookup_expression(
     match expr {
         Expression::Null => LookupExpressionResult::Null(),
         Expression::Number(time) => LookupExpressionResult {
-            instances: Some(TimeWithReference {
+            result: LookupExpressionResultType::TimeRef(TimeWithReference {
                 value: 0i64.max(*time).unsigned_abs(), // Clamp to not go below 0
                 references: HashSet::new(),
             }),
-            instances2: None,
             all_references: HashSet::new(),
         },
         Expression::String(str) => {
@@ -59,6 +70,52 @@ pub fn lookup_expression(
                 all_references: inner_res.all_references,
             }
         }
+    }
+}
+
+struct MatchExpressionReferences {
+    pub remaining_expression: String,
+    pub object_ids_to_reference: Vec<String>, // TODO - should this be a set?
+    pub all_references: HashSet<String>,
+}
+fn match_expression_references(
+    resolved_timeline: &state::ResolvedTimeline,
+    expr_str: &str,
+) -> Option<MatchExpressionReferences> {
+    if let Some(id_match) = MATCH_ID_REGEX.captures(expr_str) {
+        let id = id_match.get(1).unwrap().as_str();
+
+        Some(MatchExpressionReferences {
+            remaining_expression: id_match.get(2).unwrap().as_str().to_string(),
+            object_ids_to_reference: vec![id.to_string()],
+            all_references: set![format!("#{}", id)],
+        })
+    } else if let Some(class_match) = MATCH_CLASS_REGEX.captures(expr_str) {
+        let class_name = class_match.get(1).unwrap().as_str();
+
+        Some(MatchExpressionReferences {
+            remaining_expression: class_match.get(2).unwrap().as_str().to_string(),
+            object_ids_to_reference: resolved_timeline
+                .classes
+                .get(class_name)
+                .cloned()
+                .unwrap_or_default(),
+            all_references: set![format!(".{}", class_name)],
+        })
+    } else if let Some(layer_match) = MATCH_LAYER_REGEX.captures(expr_str) {
+        let layer_id = layer_match.get(1).unwrap().as_str();
+
+        Some(MatchExpressionReferences {
+            remaining_expression: layer_match.get(2).unwrap().as_str().to_string(),
+            object_ids_to_reference: resolved_timeline
+                .layers
+                .get(layer_id)
+                .cloned()
+                .unwrap_or_default(),
+            all_references: set![format!("${}", layer_id)],
+        })
+    } else {
+        None
     }
 }
 
@@ -148,21 +205,20 @@ fn lookup_expression_str(
                     }
                 }
 
-                let mut first_duration: Option<TimeWithReference> = None;
+                let mut result = LookupExpressionResultType::Null;
                 for d in instance_durations {
-                    match &first_duration {
+                    match &result {
                         Some(first2) => {
                             if d.value < first2.value {
-                                first_duration = Some(d);
+                                result = LookupExpressionResultType::TimeRef(d);
                             }
                         }
-                        None => first_duration = Some(d),
+                        None => result = LookupExpressionResultType::TimeRef(d),
                     };
                 }
 
                 return LookupExpressionResult {
-                    instances: first_duration,
-                    instances2: None,
+                    result,
                     all_references: expression_references.all_references,
                 };
             } else {
@@ -196,14 +252,12 @@ fn lookup_expression_str(
                     }
 
                     return LookupExpressionResult {
-                        instances2: Some(return_instances),
-                        instances: None,
+                        result: LookupExpressionResultType::Instances(return_instances),
                         all_references: expression_references.all_references,
                     };
                 } else {
                     return LookupExpressionResult {
-                        instances: None,
-                        instances2: None,
+                        result: LookupExpressionResultType::Null,
                         all_references: expression_references.all_references,
                     };
                 }
@@ -321,8 +375,7 @@ fn lookup_expression_obj(
 
 
             LookupExpressionResult {
-                instances2: Some(instances),
-                instances: None,
+                result: LookupExpressionResultType::Instances(instances),
                 all_references,
             }
         } else {
@@ -350,13 +403,9 @@ fn lookup_expression_obj(
                 _ => |a, b| None
             };
 
-            // TODO
-            // const result = operateOnArrays(lookupExpr.l, lookupExpr.r, operate)
-            // return { instances: result, allReferences: allReferences }
-
+            let result = operate_on_arrays(&l.result, &r.result, operator);
             LookupExpressionResult {
-                instances2: Some(instances),
-                instances: None,
+                result: LookupExpressionResultType::Instances(result),
                 all_references,
             }
         }

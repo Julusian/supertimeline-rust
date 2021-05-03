@@ -1,8 +1,10 @@
 use crate::instance::{TimelineObjectInstance, Cap};
-use std::cmp::Ordering;
+use std::cmp::{Ordering, max, min};
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use crate::resolver::TimeWithReference;
+use crate::state::ResolveOptions;
+use crate::lookup_expression::{LookupExpressionResult, LookupExpressionResultType};
 
 pub type Time = u64;
 
@@ -122,165 +124,8 @@ pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bo
     }
 }
 
-struct EventForInstance<'a> {
-    time: Time,
-    is_start: bool,
-    references: &'a HashSet<String>,
-    instance: &'a TimelineObjectInstance,
-}
 
-fn sort_events(mut events: Vec<EventForInstance>) {
-    events.sort_by(|a, b| {
-        if a.time > b.time {
-            Ordering::Greater
-        } else if a.time < b.time {
-            Ordering::Less
-        } else {
-            // const aId = a.data && (a.data.id || (a.data.instance && a.data.instance.id))
-            // const bId = b.data && (b.data.id || (b.data.instance && b.data.instance.id))
-
-            if a.instance.id == b.instance.id {
-                // If the event refer to the same ID, let the ending event be first:
-                if a.is_start && !b.is_start {
-                    return Ordering::Less
-                } else if !a.is_start && b.is_start {
-                    return Ordering::Greater
-                }
-            }
-
-            if a.is_start && !b.is_start {
-                return Ordering::Greater
-            } else if !a.is_start && b.is_start {
-                return Ordering::Less
-            }
-
-            Ordering::Equal
-        }
-    });
-}
-
-fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merge: bool, allow_zero_gaps: bool) -> Vec<TimelineObjectInstance> {
-    sort_events(events);
-
-    let mut return_instances = Vec::new();
-
-    let mut active_instances = HashMap::new();
-    let mut active_instance_id = None;
-    let mut previous_active = false;
-
-    for event in events {
-        let event_id = &event.instance.id;
-
-        let last_instance = return_instances.last_mut();
-
-        // Track the event's change
-        if event.is_start {
-            active_instances.insert(event_id, &event);
-        } else {
-            active_instances.remove(event_id);
-        }
-
-        if active_instances.is_empty() {
-            // No instances are active
-            if previous_active {
-                if let Some(last_instance) = last_instance {
-                    last_instance.end = Some(event.time);
-                }
-            }
-            previous_active = false
-        } else {
-            // There is an active instance
-            previous_active = true;
-
-            if let Some(last_instance) = last_instance {
-                if !allow_merge && event.is_start && last_instance.end.is_none() && !active_instance_id.eq(event_id) {
-                    // Start a new instance:
-                    last_instance.end = Some(event.time);
-                    return_instances.push(TimelineObjectInstance {
-                        id: getId(),
-                        start: event.time,
-                        end: None,
-                        references: event.references.cloned(),
-
-                        isFirst: false,
-                        caps: Vec::new(),
-                        originalStart: None,
-                        originalEnd: None,
-                        fromInstanceId: None,
-                    });
-                    active_instance_id = Some(event_id);
-                } else if !allow_merge && !event.is_start && active_instance_id == event_id {
-                    // The active instance stopped playing, but another is still playing
-                    let latest_instance = active_instances.iter().reduce(|a,b| if a.1.time < b.1.time { b } else { a });
-
-                    if let Some(latest_instance) = latest_instance {
-                        // Restart that instance now:
-                        last_instance.end = Some(event.time);
-                        return_instances.push(TimelineObjectInstance {
-                            id: event_id + '_' + getId(),
-                            start: event.time,
-                            end: None,
-                            references: latest_instance.references.cloned(),
-
-                            isFirst: false,
-                            caps: Vec::new(),
-                            originalStart: None,
-                            originalEnd: None,
-                            fromInstanceId: None,
-                        });
-                        active_instance_id = Some(latest_instance.0);
-                    }
-                 } else if allow_merge && !allow_zero_gaps && last_instance.end == event.time {
-                        // The previously running ended just now
-                        // resume previous instance:
-                    last_instance.end = None;
-                    last_instance.references = join_references(&last_instance.references, Some(event.references), None);
-                    add_caps_to_resuming(last_instance, &event.instance.caps);
-                } else if let Some(end) = last_instance.end {
-                    // There is no previously running instance
-                    // Start a new instance:
-                    return_instances.push( TimelineObjectInstance{
-                        id: event_id.to_string(),
-                        start: event.time,
-                        end: None,
-                        references: event.references.clone(),
-                        caps: event.instance.caps.cloned(),
-
-                        isFirst: false,
-                        originalStart: None,
-                        originalEnd: None,
-                        fromInstanceId: None,
-                    });
-                    active_instance_id = Some(event_id);
-                } else {
-                    // There is already a running instance
-                    last_instance.references = join_references(&last_instance.references, Some(event.references), None);
-                    add_caps_to_resuming(last_instance, &event.instance.caps);
-                }
-            } else {
-                // There is no previously running instance
-                // Start a new instance:
-                return_instances.push( TimelineObjectInstance{
-                    id: event_id.to_string(),
-                    start: event.time,
-                    end: None,
-                    references: event.references.clone(),
-                    caps: event.instance.caps.cloned(),
-
-                    isFirst: false,
-                    originalStart: None,
-                    originalEnd: None,
-                    fromInstanceId: None,
-                });
-                active_instance_id = Some(event_id);
-            }
-        }
-    }
-
-    return_instances
-}
-
-fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Cap>) {
+pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Cap>) {
     let mut new_caps = Vec::new();
 
     for cap in caps {
@@ -358,8 +203,180 @@ pub fn join_references2(a: &HashSet<String>, b: &HashSet<String>)-> HashSet<Stri
     new_refs.cloned()
 }
 
+fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<TimelineObjectInstance>> {
+    match a {
+        LookupExpressionResultType::Null => None,
+        LookupExpressionResultType::TimeRef(time_ref) => Some(&vec![TimelineObjectInstance{
+            id: "".to_string(),
+            start: time_ref.value,
+            end: Some(time_ref.value),
+            references: time_ref.references.clone(),
 
-pub fn operate_on_arrays(a: &Vec<TimelineObjectInstance>, b: &Vec<TimelineObjectInstance>) -> Vec<TimelineObjectInstance> {
+            isFirst: false,
+            originalStart: None,
+            originalEnd: None,
+            caps: vec![],
+            fromInstanceId: None
+        }]),
+        LookupExpressionResultType::Instances(instances) => Some(instances),
+    }
+}
+
+pub fn operate_on_arrays(lookup0: &LookupExpressionResultType, lookup1: &LookupExpressionResultType, operate: fn(a: Option<&TimeWithReference>, b: Option<&TimeWithReference>) -> Option<&TimeWithReference> ) -> LookupExpressionResultType {
+    if let Some(lookup0) = get_as_array_to_operate(lookup0) {
+        if let Some(lookup1) = get_as_array_to_operate(lookup1) {
+            // TODO - both refs shortcut
+            // if (
+            //     isReference(array0) &&
+            //         isReference(array1)
+            // ) {
+            //     return operate(array0, array1)
+            // }
+
+            let mut result = Vec::new();
+
+            // let min_length = min(lookup0.len(), lookup1.len());
+            // Iterate through both until we run out of one
+            for (a, b) in lookup0.iter().zip(lookup1.iter()) {
+                let start = if a.isFirst {
+                    Some(TimeWithReference{
+                        value: a.start,
+                        references: a.references.clone(),
+                    })
+                } else if b.isFirst {
+                    Some(TimeWithReference{
+                        value: b.start,
+                        references: b.references.clone(),
+                    })
+                } else {
+                    operate(Some(&TimeWithReference{
+                        value: a.start,
+                        references: join_references(&a.references, None, Some(&a.id)),
+                    }), Some(&TimeWithReference{
+                        value: b.start,
+                        references: join_references(&b.references, None, Some(&b.id)),
+                    }))
+                };
+
+                if let Some(start) = start {
+                    let end = if a.isFirst {
+                        a.end.and_then(|end|
+                            Some(TimeWithReference {
+                                value: end,
+                                references: a.references.clone(),
+                            }))
+                    } else if b.isFirst {
+                        b.end.and_then(|end|
+                            Some(TimeWithReference {
+                                value: end,
+                                references: b.references.clone(),
+                            }))
+                    } else {
+                        operate(a.end.and_then(|end| Some(&TimeWithReference {
+                            value: end,
+                            references: join_references(&a.references, None, Some(&a.id)),
+                        })), b.end.and_then(|end| Some(&TimeWithReference {
+                            value: end,
+                            references: join_references(&b.references, None, Some(&b.id)),
+                        })))
+                    };
+
+                    result.push(TimelineObjectInstance {
+                        id: getId(),
+                        start: start.value,
+                        end: end.and_then(|e| Some(e.value)),
+                        references: join_references(&start.references, end.and_then(|e| Some(&e.references)), None),
+                        caps: join_caps(&a.caps, &b.caps),
+
+                        isFirst: false,
+                        originalStart: None,
+                        originalEnd: None,
+                        fromInstanceId: None
+                    })
+                }
+            }
+
+
+            LookupExpressionResultType::Instances(clean_instances(&result, false, false))
+        } else {
+            LookupExpressionResultType::Null
+        }
+    } else {
+        LookupExpressionResultType::Null
+    }
+}
+
+pub fn apply_repeating_instances(instances: &Vec<TimelineObjectInstance>, repeat_time: Option<TimeWithReference>, options: &ResolveOptions) -> Vec<TimelineObjectInstance>{
+    if let Some(repeat_time) = &repeat_time {
+        let repeated_instances = Vec::new();
+
+        // TODO - why was this necessary?
+        // if (isReference(instances)) {
+        //     instances = [{
+        //         id: '',
+        //         start: instances.value,
+        //         end: null,
+        //         references: instances.references
+        //     }]
+        // }
+
+        for instance in instances {
+            let start_time = max(options.time - ((options.time - instance.start) % repeat_time.value), instance.start);
+            let end_time = instance.end.and_then(|end| Some(end + (start_time - instance.start)));
+
+            // TODO
+            // let cap = instance.caps
+            // const cap: Cap | null = (
+            //     instance.caps ?
+            // _.find(instance.caps, (cap) => instance.references.indexOf(cap.id) !== -1)
+            //     : null
+            // ) || null
+            //
+            // const limit = options.limitCount || 2
+            // for (let i = 0; i < limit; i++) {
+            //     if (
+            //         options.limitTime &&
+            //             startTime >= options.limitTime
+            //     ) break
+            //
+            //     const cappedStartTime: Time = (
+            //         cap ?
+            //     Math.max(cap.start, startTime) :
+            //         startTime
+            //     )
+            //     const cappedEndTime: Time | null = (
+            //         cap && cap.end !== null && endTime !== null ?
+            //     Math.min(cap.end, endTime) :
+            //         endTime
+            //     )
+            //     if ((cappedEndTime || Infinity) > cappedStartTime) {
+            //         repeatedInstances.push({
+            //             id: getId(),
+            //             start: cappedStartTime,
+            //             end: cappedEndTime,
+            //             references: joinReferences(instance.id, instance.references, repeatTime0.references)
+            //         })
+            //     }
+            //
+            //     startTime += repeatTime
+            //     if (endTime !== null) endTime += repeatTime
+            // }
+        }
+
+        clean_instances(&repeated_instances, false, false)
+    } else {
+        instances.clone()
+    }
+}
+
+pub fn apply_parent_instances(parent_instances: &Option<Vec<TimelineObjectInstance>>, value: &LookupExpressionResultType) -> LookupExpressionResultType {
     // TODO
-    Vec::new()
+    // const operate = (a: ValueWithReference | null, b: ValueWithReference | null): ValueWithReference | null => {
+    //     if (a === null || b === null) return null
+    //     return {
+    //         value: a.value + b.value,
+    //         references: joinReferences(a.references, b.references)
+    //     }
+    // }
+    // return operateOnArrays(parentInstances, value, operate)
 }
