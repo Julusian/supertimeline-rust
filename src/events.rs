@@ -1,5 +1,6 @@
+use crate::api::ResolverContext;
 use crate::instance::TimelineObjectInstance;
-use crate::util::{add_caps_to_resuming, getId, join_hashset, Time};
+use crate::util::{add_caps_to_resuming, join_hashset, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
@@ -23,9 +24,6 @@ impl<T: IsEvent> VecIsEventExt for Vec<T> {
             } else if a_time < b_time {
                 Ordering::Less
             } else {
-                // const aId = a.data && (a.data.id || (a.data.instance && a.data.instance.id))
-                // const bId = b.data && (b.data.id || (b.data.instance && b.data.instance.id))
-
                 let a_start = a.is_start();
                 let b_start = b.is_start();
 
@@ -81,6 +79,7 @@ impl<'a> IsEvent for EventForInstance<'a> {
 pub trait EventForInstanceExt {
     fn to_instances(
         &mut self,
+        ctx: &dyn ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance>;
@@ -88,6 +87,7 @@ pub trait EventForInstanceExt {
 impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
     fn to_instances(
         &mut self,
+        ctx: &dyn ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance> {
@@ -134,7 +134,7 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         // Start a new instance:
                         last_instance.end = Some(event.time);
                         return_instances.push(TimelineObjectInstance {
-                            id: getId(),
+                            id: ctx.get_id(),
                             start: event.time,
                             end: None,
                             references: event.references.clone(),
@@ -162,7 +162,7 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                             // Restart that instance now:
                             last_instance.end = Some(event.time);
                             return_instances.push(TimelineObjectInstance {
-                                id: format!("{}_{}", event_id, getId()),
+                                id: format!("{}_{}", event_id, ctx.get_id()),
                                 start: event.time,
                                 end: None,
                                 references: latest_instance.1.references.clone(),

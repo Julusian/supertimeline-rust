@@ -1,4 +1,4 @@
-use crate::api::ResolvedTimeline;
+use crate::api::{ResolvedTimeline, ResolverContext};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::expression::{
     interpret_expression, is_constant, simplify_expression, Expression, ExpressionError,
@@ -7,7 +7,7 @@ use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
 use crate::util::{
-    apply_parent_instances, apply_repeating_instances, cap_instance, getId, join_hashset, Time,
+    apply_parent_instances, apply_repeating_instances, cap_instance, join_hashset, Time,
 };
 use std::cmp::min;
 use std::collections::HashSet;
@@ -125,7 +125,7 @@ pub fn resolve_timeline_obj(
             direct_references.extend(lookup_start.all_references);
 
             let looked_up_starts = if refer_to_parent {
-                apply_parent_instances(&parent_instances, &lookup_start.result)
+                apply_parent_instances(resolved_timeline, &parent_instances, &lookup_start.result)
             } else {
                 lookup_start.result
             };
@@ -137,7 +137,7 @@ pub fn resolve_timeline_obj(
                     LookupExpressionResultType::Instances(instances) => new_instances = instances,
                     LookupExpressionResultType::TimeRef(time_ref) => {
                         new_instances.push(TimelineObjectInstance {
-                            id: getId(),
+                            id: resolved_timeline.get_id(),
                             start: time_ref.value,
                             end: None,
                             references: time_ref.references,
@@ -179,7 +179,7 @@ pub fn resolve_timeline_obj(
                             time: time_ref.value,
                             is_start: true,
                             instance: &TimelineObjectInstance {
-                                id: getId(),
+                                id: resolved_timeline.get_id(),
                                 start: time_ref.value,
                                 end: None,
                                 references: time_ref.references.clone(),
@@ -212,7 +212,11 @@ pub fn resolve_timeline_obj(
                     let lookup_end =
                         lookup_expression(resolved_timeline, obj, &end_expr, &ObjectRefType::End);
                     let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
-                        apply_parent_instances(&parent_instances, &lookup_end.result)
+                        apply_parent_instances(
+                            resolved_timeline,
+                            &parent_instances,
+                            &lookup_end.result,
+                        )
                     } else {
                         lookup_end.result
                     };
@@ -241,7 +245,7 @@ pub fn resolve_timeline_obj(
                                 time: time_ref.value,
                                 is_start: false,
                                 instance: &TimelineObjectInstance {
-                                    id: getId(),
+                                    id: resolved_timeline.get_id(),
                                     start: time_ref.value,
                                     end: None,
                                     references: time_ref.references.clone(),
@@ -339,7 +343,7 @@ pub fn resolve_timeline_obj(
                     }
                 }
 
-                new_instances.extend(events.to_instances(false, false));
+                new_instances.extend(events.to_instances(resolved_timeline, false, false));
             }
 
             if has_parent {
@@ -397,6 +401,7 @@ pub fn resolve_timeline_obj(
             }
 
             instances.extend(apply_repeating_instances(
+                resolved_timeline,
                 &new_instances,
                 looked_up_repeating2,
                 &resolved_timeline.options,

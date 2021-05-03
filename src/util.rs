@@ -1,3 +1,4 @@
+use crate::api::ResolverContext;
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::{Cap, TimelineObjectInstance};
 use crate::lookup_expression::LookupExpressionResultType;
@@ -9,15 +10,13 @@ use std::hash::Hash;
 
 pub type Time = u64;
 
-pub fn getId() -> String {
-    // TODO
-    "".to_string()
-}
-
-pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<TimelineObjectInstance> {
+pub fn invert_instances(
+    ctx: &dyn ResolverContext,
+    instances: &Vec<TimelineObjectInstance>,
+) -> Vec<TimelineObjectInstance> {
     if instances.len() == 0 {
         vec![TimelineObjectInstance {
-            id: getId(),
+            id: ctx.get_id(),
             isFirst: true,
             start: 0,
             end: None,
@@ -30,7 +29,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
             fromInstanceId: None,
         }]
     } else {
-        let cleaned_instances = clean_instances(instances, true, true);
+        let cleaned_instances = clean_instances(ctx, instances, true, true);
 
         let mut inverted_instances = Vec::new();
 
@@ -39,7 +38,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
         // Fill the time between the first and zero
         if first_instance.start != 0 {
             inverted_instances.push(TimelineObjectInstance {
-                id: getId(),
+                id: ctx.get_id(),
                 isFirst: true,
                 start: 0,
                 end: None,
@@ -64,7 +63,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
 
             if let Some(end) = instance.end {
                 inverted_instances.push(TimelineObjectInstance {
-                    id: getId(),
+                    id: ctx.get_id(),
                     isFirst: false,
                     start: end,
                     end: None,
@@ -85,6 +84,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
 
 // Cleanup instances. Join overlaps or touching etc
 pub fn clean_instances(
+    ctx: &dyn ResolverContext,
     instances: &Vec<TimelineObjectInstance>,
     allow_merge: bool,
     allow_zero_gaps: bool,
@@ -121,7 +121,7 @@ pub fn clean_instances(
                 }
             }
 
-            events.to_instances(allow_merge, allow_zero_gaps)
+            events.to_instances(ctx, allow_merge, allow_zero_gaps)
         }
     }
 }
@@ -207,6 +207,7 @@ fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<Timeli
 }
 
 pub fn operate_on_arrays<T>(
+    ctx: &dyn ResolverContext,
     lookup0: &LookupExpressionResultType,
     lookup1: &LookupExpressionResultType,
     operate: &T,
@@ -285,7 +286,7 @@ where
                     };
 
                     result.push(TimelineObjectInstance {
-                        id: getId(),
+                        id: ctx.get_id(),
                         start: start.value,
                         end: end.and_then(|e| Some(e.value)),
                         references: join_maybe_hashset(
@@ -302,7 +303,7 @@ where
                 }
             }
 
-            LookupExpressionResultType::Instances(clean_instances(&result, false, false))
+            LookupExpressionResultType::Instances(clean_instances(ctx, &result, false, false))
         } else {
             LookupExpressionResultType::Null
         }
@@ -312,6 +313,7 @@ where
 }
 
 pub fn apply_repeating_instances(
+    ctx: &dyn ResolverContext,
     instances: &Vec<TimelineObjectInstance>,
     repeat_time: Option<TimeWithReference>,
     options: &ResolveOptions,
@@ -377,13 +379,14 @@ pub fn apply_repeating_instances(
             // }
         }
 
-        clean_instances(&repeated_instances, false, false)
+        clean_instances(ctx, &repeated_instances, false, false)
     } else {
         instances.clone()
     }
 }
 
 pub fn apply_parent_instances(
+    ctx: &dyn ResolverContext,
     parent_instances: &Option<Vec<TimelineObjectInstance>>,
     value: &LookupExpressionResultType,
 ) -> LookupExpressionResultType {
@@ -403,6 +406,7 @@ pub fn apply_parent_instances(
             }
         };
         operate_on_arrays(
+            ctx,
             &LookupExpressionResultType::Instances(parent_instances.clone()),
             value,
             &operate,

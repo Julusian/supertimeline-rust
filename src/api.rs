@@ -135,6 +135,10 @@ fn add_object_to_timeline(
     }
 }
 
+pub trait ResolverContext {
+    fn get_id(&self) -> String;
+}
+
 // TODO - this should be split into a result and a context
 pub struct ResolvedTimeline {
     pub options: ResolveOptions,
@@ -147,7 +151,7 @@ pub struct ResolvedTimeline {
     // pub statistics: ResolveStatistics,
     next_id: AtomicUsize,
 }
-impl ResolvedTimeline {
+impl ResolverContext for ResolvedTimeline {
     fn get_id(&self) -> String {
         let index = self.next_id.fetch_add(1, Ordering::Relaxed);
         format!("{}", index)

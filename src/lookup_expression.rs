@@ -1,4 +1,4 @@
-use crate::api::ResolvedTimeline;
+use crate::api::{ResolvedTimeline, ResolverContext};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::{Cap, TimelineObjectInstance};
@@ -6,7 +6,7 @@ use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::state::ResolvedTimelineObject;
 use crate::util::{
-    clean_instances, getId, invert_instances, join_caps, join_hashset, join_maybe_hashset,
+    clean_instances, invert_instances, join_caps, join_hashset, join_maybe_hashset,
     operate_on_arrays, Time,
 };
 use regex::Regex;
@@ -71,7 +71,10 @@ pub fn lookup_expression(
                     LookupExpressionResultType::TimeRef(time_ref)
                 } // Can't invert a time
                 LookupExpressionResultType::Instances(instances) => {
-                    LookupExpressionResultType::Instances(invert_instances(&instances))
+                    LookupExpressionResultType::Instances(invert_instances(
+                        resolved_timeline,
+                        &instances,
+                    ))
                 }
             };
 
@@ -256,7 +259,7 @@ fn lookup_expression_str(
 
                 if return_instances.len() > 0 {
                     if invertAndIgnoreFirstIfZero {
-                        return_instances = invert_instances(&return_instances);
+                        return_instances = invert_instances(resolved_timeline, &return_instances);
 
                         if let Some(first) = return_instances.first() {
                             if first.start == 0 {
@@ -264,7 +267,8 @@ fn lookup_expression_str(
                             }
                         }
                     } else {
-                        return_instances = clean_instances(&return_instances, true, true);
+                        return_instances =
+                            clean_instances(resolved_timeline, &return_instances, true, true);
                     }
 
                     return LookupExpressionResult {
@@ -342,7 +346,7 @@ fn lookup_expression_obj(
                 |time: Time, value: bool, references: HashSet<String>, caps: Vec<Cap>| {
                     if value {
                         instances.push(TimelineObjectInstance {
-                            id: getId(),
+                            id: resolved_timeline.get_id(),
                             start: time,
                             end: None,
                             references,
@@ -453,7 +457,7 @@ fn lookup_expression_obj(
                 }
             };
 
-            let result = operate_on_arrays(&l.result, &r.result, &operator2);
+            let result = operate_on_arrays(resolved_timeline, &l.result, &r.result, &operator2);
 
             LookupExpressionResult {
                 result,
