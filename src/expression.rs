@@ -25,7 +25,7 @@ impl Display for ExpressionOperator {
         match self {
             ExpressionOperator::And => write!(f, "&"),
             ExpressionOperator::Or => write!(f, "|"),
-            ExpressionOperator::Add =>  write!(f, "+"),
+            ExpressionOperator::Add => write!(f, "+"),
             ExpressionOperator::Subtract => write!(f, "-"),
             ExpressionOperator::Multiply => write!(f, "*"),
             ExpressionOperator::Divide => write!(f, "/"),
@@ -33,7 +33,6 @@ impl Display for ExpressionOperator {
         }
     }
 }
-
 
 #[derive(PartialEq, Debug)]
 pub enum Expression {
@@ -199,7 +198,7 @@ fn ensure_number_polarity(phrase: &mut Vec<WrappedWords>, val: i64) -> i64 {
     }
 }
 
-fn match_operator (str: &str) -> Option<ExpressionOperator> {
+fn match_operator(str: &str) -> Option<ExpressionOperator> {
     if str == "&" {
         Some(ExpressionOperator::Add)
     } else {
@@ -230,7 +229,7 @@ fn interpret_words(mut phrase: Vec<WrappedWords>) -> Result<Expression, Expressi
                             o: op2,
                             r: current_expression,
                         }
-                            .wrap();
+                        .wrap();
                     } else {
                         return Err(ExpressionError::InvalidOperator);
                     }
@@ -423,20 +422,20 @@ mod tests {
             .wrap()
         );
 
-//        assert_eq!(
-//            interpret_expression_string("1 * 2 + 3").expect("Expected success"),
-//            ExpressionObj {
-//                l: ExpressionObj {
-//                    l: Expression::Number(1),
-//                    o: "*".to_string(),
-//                    r: Expression::Number(2)
-//                }
-//                .wrap(),
-//                o: "+".to_string(),
-//                r: Expression::Number(3)
-//            }
-//            .wrap()
-//        );
+        //        assert_eq!(
+        //            interpret_expression_string("1 * 2 + 3").expect("Expected success"),
+        //            ExpressionObj {
+        //                l: ExpressionObj {
+        //                    l: Expression::Number(1),
+        //                    o: "*".to_string(),
+        //                    r: Expression::Number(2)
+        //                }
+        //                .wrap(),
+        //                o: "+".to_string(),
+        //                r: Expression::Number(3)
+        //            }
+        //            .wrap()
+        //        );
 
         assert_eq!(
             interpret_expression_string("1 * (2 + 3)").expect("Expected success"),
@@ -472,7 +471,7 @@ mod tests {
             interpret_expression_string("!thisOne & !(that | !those)").expect("Expected success"),
             ExpressionObj {
                 l: Expression::Invert(Box::new(Expression::String("thisOne".to_string()))),
-                o:ExpressionOperator::And,
+                o: ExpressionOperator::And,
                 r: Expression::Invert(Box::new(
                     ExpressionObj {
                         l: Expression::String("that".to_string()),
@@ -486,18 +485,21 @@ mod tests {
         );
 
         assert_eq!(
-            interpret_expression_string("(!.classA | !$layer.classB) & #obj").expect("Expected success"),
+            interpret_expression_string("(!.classA | !$layer.classB) & #obj")
+                .expect("Expected success"),
             ExpressionObj {
                 r: Expression::String("#obj".to_string()),
                 o: ExpressionOperator::And,
-                l:  ExpressionObj {
-                        l: Expression::Invert(Box::new(Expression::String(".classA".to_string()))),
-                        o: ExpressionOperator::Or,
-                        r: Expression::Invert(Box::new(Expression::String("$layer.classB".to_string()))),
-                    }.wrap()
-
-            }
+                l: ExpressionObj {
+                    l: Expression::Invert(Box::new(Expression::String(".classA".to_string()))),
+                    o: ExpressionOperator::Or,
+                    r: Expression::Invert(Box::new(Expression::String(
+                        "$layer.classB".to_string()
+                    ))),
+                }
                 .wrap()
+            }
+            .wrap()
         );
 
         assert_eq!(
@@ -525,10 +527,18 @@ mod tests {
         assert_eq!(wrap_expression(input).unwrap(), expected);
     }
 
-       #[test]
-       fn wrap_inner_expressions2() {
-           let input = vec!["a", "&", "!", "b"];
-           let expected = vec![WrappedWords::Single("a"), WrappedWords::Single("&"), WrappedWords::Group(vec![WrappedWords::Single(""), WrappedWords::Single("!"), WrappedWords::Single("b")])];
-           assert_eq!(wrap_expression(input).unwrap(), expected);
-       }
+    #[test]
+    fn wrap_inner_expressions2() {
+        let input = vec!["a", "&", "!", "b"];
+        let expected = vec![
+            WrappedWords::Single("a"),
+            WrappedWords::Single("&"),
+            WrappedWords::Group(vec![
+                WrappedWords::Single(""),
+                WrappedWords::Single("!"),
+                WrappedWords::Single("b"),
+            ]),
+        ];
+        assert_eq!(wrap_expression(input).unwrap(), expected);
+    }
 }

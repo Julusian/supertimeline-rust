@@ -1,15 +1,20 @@
-use crate::expression::{Expression, ExpressionObj, ExpressionOperator, interpret_expression, ExpressionError};
-use crate::instance::TimelineObjectInstance;
-use crate::state;
-use crate::util::{clean_instances, getId, invert_instances, join_caps, join_references, join_references2, join_references3, join_references4, Time, apply_parent_instances};
-use regex::Regex;
-use std::collections::HashSet;
-use std::iter::FromIterator;
-use std::fmt::Error;
-use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
-use crate::state::NextEvent;
-use std::cmp::min;
 use crate::events::{convert_events_to_instances, EventForInstance};
+use crate::expression::{
+    interpret_expression, Expression, ExpressionError, ExpressionObj, ExpressionOperator,
+};
+use crate::instance::TimelineObjectInstance;
+use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
+use crate::state;
+use crate::state::NextEvent;
+use crate::util::{
+    apply_parent_instances, clean_instances, getId, invert_instances, join_caps, join_references,
+    join_references2, join_references3, join_references4, Time,
+};
+use regex::Regex;
+use std::cmp::min;
+use std::collections::HashSet;
+use std::fmt::Error;
+use std::iter::FromIterator;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ObjectRefType {
@@ -25,7 +30,7 @@ pub struct TimeWithReference {
 
 pub enum ResolveError {
     CircularDependency(String),
-    BadExpression((String, &'static str, ExpressionError))
+    BadExpression((String, &'static str, ExpressionError)),
 }
 
 pub fn resolve_timeline_obj(
@@ -35,7 +40,9 @@ pub fn resolve_timeline_obj(
     if obj.resolved.resolved {
         Ok(())
     } else if obj.resolved.resolving {
-        Err(ResolveError::CircularDependency(obj.object.id().to_string()))
+        Err(ResolveError::CircularDependency(
+            obj.object.id().to_string(),
+        ))
     } else {
         // TODO
         obj.resolved.resolving = true;
@@ -49,13 +56,24 @@ pub fn resolve_timeline_obj(
             let repeating_expr = if let Some(expr) = &enable.repeating {
                 match interpret_expression(expr) {
                     Ok(val) => val,
-                    Err(err) => return Err(ResolveError::BadExpression((obj_id.to_string(), "repeating", err))),
+                    Err(err) => {
+                        return Err(ResolveError::BadExpression((
+                            obj_id.to_string(),
+                            "repeating",
+                            err,
+                        )))
+                    }
                 }
             } else {
                 Expression::Null
             };
 
-            let looked_up_repeating = lookup_expression(resolved_timeline, obj, &repeating_expr, &ObjectRefType::Duration);
+            let looked_up_repeating = lookup_expression(
+                resolved_timeline,
+                obj,
+                &repeating_expr,
+                &ObjectRefType::Duration,
+            );
             direct_references.extend(looked_up_repeating.all_references);
 
             let looked_up_repeating2 = match looked_up_repeating.result {
@@ -65,7 +83,9 @@ pub fn resolve_timeline_obj(
             };
 
             // TODO - simplifyExpression
-            let start =  &enable.enable_while.unwrap_or(enable.enable_start.unwrap_or(Expression::Null));
+            let start = &enable
+                .enable_while
+                .unwrap_or(enable.enable_start.unwrap_or(Expression::Null));
 
             let mut parent_instances = None;
             let mut has_parent = false;
@@ -74,13 +94,14 @@ pub fn resolve_timeline_obj(
                 has_parent = true;
 
                 let expr = Expression::String(format!(r"#{}", parent_id));
-                let lookup = lookup_expression(resolved_timeline, obj, &expr, &ObjectRefType::Start);
+                let lookup =
+                    lookup_expression(resolved_timeline, obj, &expr, &ObjectRefType::Start);
                 match lookup.result {
-                    LookupExpressionResultType::TimeRef(_) => {},
+                    LookupExpressionResultType::TimeRef(_) => {}
                     LookupExpressionResultType::Instances(instances) => {
                         parent_instances = Some(instances);
-                    },
-                    LookupExpressionResultType::Null() => {},
+                    }
+                    LookupExpressionResultType::Null() => {}
                 }
 
                 direct_references.extend(&lookup.all_references);
@@ -91,18 +112,21 @@ pub fn resolve_timeline_obj(
                 }
             }
 
-            let lookup_start = lookup_expression(resolved_timeline, obj, start, &ObjectRefType::Start);
+            let lookup_start =
+                lookup_expression(resolved_timeline, obj, start, &ObjectRefType::Start);
             direct_references.extend(lookup_start.all_references);
 
-            let looked_up_starts = if refer_to_parent { apply_parent_instances(&parent_instances, &lookup_start.result) } else { lookup_start.result };
+            let looked_up_starts = if refer_to_parent {
+                apply_parent_instances(&parent_instances, &lookup_start.result)
+            } else {
+                lookup_start.result
+            };
 
             let mut new_instances = Vec::new();
 
             if let Some(enable_while) = &enable.enable_while {
                 match looked_up_starts {
-                    LookupExpressionResultType::Instances(instances) => {
-                        new_instances = instances
-                    },
+                    LookupExpressionResultType::Instances(instances) => new_instances = instances,
                     LookupExpressionResultType::TimeRef(time_ref) => {
                         new_instances.push(TimelineObjectInstance {
                             id: getId(),
@@ -114,9 +138,9 @@ pub fn resolve_timeline_obj(
                             originalStart: None,
                             originalEnd: None,
                             caps: vec![],
-                            fromInstanceId: None
+                            fromInstanceId: None,
                         })
-                    },
+                    }
                     LookupExpressionResultType::Null() => {}
                 }
             } else {
@@ -138,7 +162,7 @@ pub fn resolve_timeline_obj(
                                 references: &instance.references,
                             })
                         }
-                    },
+                    }
                     LookupExpressionResultType::TimeRef(time_ref) => {
                         let index = i_start;
                         i_start = i_start + 1;
@@ -156,22 +180,29 @@ pub fn resolve_timeline_obj(
                                 originalStart: None,
                                 originalEnd: None,
                                 caps: vec![],
-                                fromInstanceId: None
+                                fromInstanceId: None,
                             },
                             id: Some(format!("{}_{}", obj_id, index)),
                             references: &time_ref.references,
                         })
-                    },
+                    }
                     LookupExpressionResultType::Null() => {}
                 }
 
                 if let Some(enable_end) = &enable.enable_end {
-                    let end_expr =  match interpret_expression(enable_end) {
+                    let end_expr = match interpret_expression(enable_end) {
                         Ok(val) => val,
-                        Err(err) => return Err(ResolveError::BadExpression((obj_id.to_string(), "end", err))),
+                        Err(err) => {
+                            return Err(ResolveError::BadExpression((
+                                obj_id.to_string(),
+                                "end",
+                                err,
+                            )))
+                        }
                     };
                     // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
-                    let lookup_end = lookup_expression(resolved_timeline, obj, &end_expr, &ObjectRefType::End);
+                    let lookup_end =
+                        lookup_expression(resolved_timeline, obj, &end_expr, &ObjectRefType::End);
                     let looked_up_ends = if refer_to_parent && is_constant(end_expr) {
                         apply_parent_instances(&parent_instances, &lookup_end.result)
                     } else {
@@ -193,7 +224,7 @@ pub fn resolve_timeline_obj(
                                     references: &instance.references,
                                 })
                             }
-                        },
+                        }
                         LookupExpressionResultType::TimeRef(time_ref) => {
                             let index = i_end;
                             i_start = i_end + 1;
@@ -211,20 +242,31 @@ pub fn resolve_timeline_obj(
                                     originalStart: None,
                                     originalEnd: None,
                                     caps: vec![],
-                                    fromInstanceId: None
+                                    fromInstanceId: None,
                                 },
                                 id: Some(format!("{}_{}", obj_id, index)),
                                 references: &time_ref.references,
                             })
-                        },
+                        }
                         LookupExpressionResultType::Null() => {}
                     }
                 } else if let Some(enable_duration) = &enable.duration {
-                    let duration_expr =  match interpret_expression(enable_duration) {
+                    let duration_expr = match interpret_expression(enable_duration) {
                         Ok(val) => val,
-                        Err(err) => return Err(ResolveError::BadExpression((obj_id.to_string(), "duration", err))),
+                        Err(err) => {
+                            return Err(ResolveError::BadExpression((
+                                obj_id.to_string(),
+                                "duration",
+                                err,
+                            )))
+                        }
                     };
-                    let lookup_duration = lookup_expression(resolved_timeline, obj, &duration_expr, &ObjectRefType::Duration);
+                    let lookup_duration = lookup_expression(
+                        resolved_timeline,
+                        obj,
+                        &duration_expr,
+                        &ObjectRefType::Duration,
+                    );
 
                     direct_references.extend(lookup_duration.all_references);
 
@@ -240,14 +282,14 @@ pub fn resolve_timeline_obj(
                             } else {
                                 None
                             }
-                        },
+                        }
                         LookupExpressionResultType::TimeRef(time_ref) => Some(time_ref),
                         LookupExpressionResultType::Null() => None,
                     };
 
                     if let Some(duration2) = looked_up_duration {
                         let duration_val = if let Some(repeating) = &looked_up_repeating2 {
-                          min(repeating.value, duration2.value)
+                            min(repeating.value, duration2.value)
                         } else {
                             duration2.value
                         };
@@ -256,7 +298,11 @@ pub fn resolve_timeline_obj(
                         for event in events {
                             if event.is_start {
                                 let endTime = event.time + duration_val;
-                                let references = join_references(&event.instance.references, Some(&duration2.references), None);
+                                let references = join_references(
+                                    &event.instance.references,
+                                    Some(&duration2.references),
+                                    None,
+                                );
 
                                 let index = i_end;
                                 i_start = i_end + 1;
@@ -274,7 +320,7 @@ pub fn resolve_timeline_obj(
                                         originalStart: None,
                                         originalEnd: None,
                                         caps: vec![],
-                                        fromInstanceId: None
+                                        fromInstanceId: None,
                                     },
                                     id: event.id.clone(),
                                     references: &references,
@@ -294,11 +340,15 @@ pub fn resolve_timeline_obj(
 
                 if let Some(parent_instances) = parent_instances {
                     for (i, instance) in new_instances.iter().enumerate() {
-                        let referred_parent_instance = parent_instances.iter().find(|parent_instance| instance.references.contains(&parent_instance.id));
+                        let referred_parent_instance =
+                            parent_instances.iter().find(|parent_instance| {
+                                instance.references.contains(&parent_instance.id)
+                            });
 
                         if let Some(referred_parent_instance) = referred_parent_instance {
                             // If the child refers to its parent, there should be one specific instance to cap into
-                            let capped_instance = cap_instances([instance], [referred_parent_instance]);
+                            let capped_instance =
+                                cap_instances([instance], [referred_parent_instance]);
 
                             // TODO
                             // if (cappedInstance) {
@@ -338,11 +388,18 @@ pub fn resolve_timeline_obj(
                 new_instances = capped_instances;
             }
 
-            instances.extend(apply_repeating_instances(new_instances, &looked_up_repeating2, &resolved_timeline.options));
+            instances.extend(apply_repeating_instances(
+                new_instances,
+                &looked_up_repeating2,
+                &resolved_timeline.options,
+            ));
         }
 
         // filter out zero-length instances:
-        let filtered_instances = instances.iter().filter(|instance| instance.end.unwrap_or(u64::MAX) > instance.start).collect();
+        let filtered_instances = instances
+            .iter()
+            .filter(|instance| instance.end.unwrap_or(u64::MAX) > instance.start)
+            .collect();
 
         obj.resolved.resolved = true;
         obj.resolved.resolving = false;

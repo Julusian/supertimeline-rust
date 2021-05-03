@@ -1,13 +1,12 @@
-use crate::instance::{TimelineObjectInstance, Cap};
-use std::cmp::{Ordering, max, min};
-use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
+use crate::instance::{Cap, TimelineObjectInstance};
+use crate::lookup_expression::{LookupExpressionResult, LookupExpressionResultType};
 use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;
-use crate::lookup_expression::{LookupExpressionResult, LookupExpressionResultType};
+use std::cmp::{max, min, Ordering};
+use std::collections::{HashMap, HashSet};
+use std::ops::Deref;
 
 pub type Time = u64;
-
 
 #[derive(Debug, Clone)]
 pub struct TimelineObject {
@@ -16,8 +15,8 @@ pub struct TimelineObject {
 }
 
 pub fn getId() -> String {
-// TODO
- "".to_string()
+    // TODO
+    "".to_string()
 }
 
 pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<TimelineObjectInstance> {
@@ -33,7 +32,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
             originalEnd: None,
 
             caps: Vec::new(),
-            fromInstanceId: None
+            fromInstanceId: None,
         }]
     } else {
         let cleaned_instances = clean_instances(instances, true, true);
@@ -49,7 +48,11 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
                 isFirst: true,
                 start: 0,
                 end: None,
-                references: join_references(&first_instance.references, None, Some(&first_instance.id)),
+                references: join_references(
+                    &first_instance.references,
+                    None,
+                    Some(&first_instance.id),
+                ),
                 caps: Vec::new(),
 
                 // TODO - what are these for if they arent set here?
@@ -82,13 +85,16 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
             }
         }
 
-
         inverted_instances
     }
 }
 
 // Cleanup instances. Join overlaps or touching etc
-pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bool, allow_zero_gaps: bool) -> Vec<TimelineObjectInstance> {
+pub fn clean_instances(
+    instances: &Vec<TimelineObjectInstance>,
+    allow_merge: bool,
+    allow_zero_gaps: bool,
+) -> Vec<TimelineObjectInstance> {
     match instances.len() {
         0 => Vec::new(),
         1 => {
@@ -97,12 +103,12 @@ pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bo
             instance.originalEnd = instance.end;
 
             vec![instance]
-        },
+        }
         _ => {
             let mut events = Vec::new();
 
             for instance in instances {
-                events.push(EventForInstance{
+                events.push(EventForInstance {
                     time: instance.start,
                     is_start: true,
                     references: &instance.references,
@@ -110,7 +116,7 @@ pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bo
                 });
 
                 if let Some(end) = instance.end {
-                    events.push(EventForInstance{
+                    events.push(EventForInstance {
                         time: end,
                         is_start: false,
                         references: &instance.references,
@@ -123,7 +129,6 @@ pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bo
         }
     }
 }
-
 
 pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Cap>) {
     let mut new_caps = Vec::new();
@@ -155,10 +160,14 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
         cap_map.insert(&cap.id, cap);
     }
 
-   cap_map.values().cloned()
+    cap_map.values().cloned()
 }
 
-pub fn join_references(a: &HashSet<String>, b: Option<&HashSet<String>>, c: Option<&String>)-> HashSet<String> {
+pub fn join_references(
+    a: &HashSet<String>,
+    b: Option<&HashSet<String>>,
+    c: Option<&String>,
+) -> HashSet<String> {
     let mut new_refs = HashSet::new();
     new_refs.extend(a);
 
@@ -173,8 +182,10 @@ pub fn join_references(a: &HashSet<String>, b: Option<&HashSet<String>>, c: Opti
     new_refs
 }
 
-
-pub fn join_references3(a: &Option<TimeWithReference>, b: &Option<TimeWithReference>)-> HashSet<String> {
+pub fn join_references3(
+    a: &Option<TimeWithReference>,
+    b: &Option<TimeWithReference>,
+) -> HashSet<String> {
     let mut new_refs = HashSet::new();
     if let Some(a) = a {
         new_refs.extend(&a.references);
@@ -185,7 +196,10 @@ pub fn join_references3(a: &Option<TimeWithReference>, b: &Option<TimeWithRefere
     new_refs.cloned()
 }
 
-pub fn join_references4(a: Option<&HashSet<String>>, b: Option<&HashSet<String>>)-> HashSet<String> {
+pub fn join_references4(
+    a: Option<&HashSet<String>>,
+    b: Option<&HashSet<String>>,
+) -> HashSet<String> {
     let mut new_refs = HashSet::new();
     if let Some(a) = a {
         new_refs.extend(&a);
@@ -196,7 +210,7 @@ pub fn join_references4(a: Option<&HashSet<String>>, b: Option<&HashSet<String>>
     new_refs.cloned()
 }
 
-pub fn join_references2(a: &HashSet<String>, b: &HashSet<String>)-> HashSet<String> {
+pub fn join_references2(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
     let mut new_refs = HashSet::new();
     new_refs.extend(a);
     new_refs.extend(b);
@@ -206,7 +220,7 @@ pub fn join_references2(a: &HashSet<String>, b: &HashSet<String>)-> HashSet<Stri
 fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<TimelineObjectInstance>> {
     match a {
         LookupExpressionResultType::Null => None,
-        LookupExpressionResultType::TimeRef(time_ref) => Some(&vec![TimelineObjectInstance{
+        LookupExpressionResultType::TimeRef(time_ref) => Some(&vec![TimelineObjectInstance {
             id: "".to_string(),
             start: time_ref.value,
             end: Some(time_ref.value),
@@ -216,13 +230,20 @@ fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<Timeli
             originalStart: None,
             originalEnd: None,
             caps: vec![],
-            fromInstanceId: None
+            fromInstanceId: None,
         }]),
         LookupExpressionResultType::Instances(instances) => Some(instances),
     }
 }
 
-pub fn operate_on_arrays(lookup0: &LookupExpressionResultType, lookup1: &LookupExpressionResultType, operate: fn(a: Option<&TimeWithReference>, b: Option<&TimeWithReference>) -> Option<&TimeWithReference> ) -> LookupExpressionResultType {
+pub fn operate_on_arrays(
+    lookup0: &LookupExpressionResultType,
+    lookup1: &LookupExpressionResultType,
+    operate: fn(
+        a: Option<&TimeWithReference>,
+        b: Option<&TimeWithReference>,
+    ) -> Option<&TimeWithReference>,
+) -> LookupExpressionResultType {
     if let Some(lookup0) = get_as_array_to_operate(lookup0) {
         if let Some(lookup1) = get_as_array_to_operate(lookup1) {
             // TODO - both refs shortcut
@@ -239,63 +260,78 @@ pub fn operate_on_arrays(lookup0: &LookupExpressionResultType, lookup1: &LookupE
             // Iterate through both until we run out of one
             for (a, b) in lookup0.iter().zip(lookup1.iter()) {
                 let start = if a.isFirst {
-                    Some(TimeWithReference{
+                    Some(TimeWithReference {
                         value: a.start,
                         references: a.references.clone(),
                     })
                 } else if b.isFirst {
-                    Some(TimeWithReference{
+                    Some(TimeWithReference {
                         value: b.start,
                         references: b.references.clone(),
                     })
                 } else {
-                    operate(Some(&TimeWithReference{
-                        value: a.start,
-                        references: join_references(&a.references, None, Some(&a.id)),
-                    }), Some(&TimeWithReference{
-                        value: b.start,
-                        references: join_references(&b.references, None, Some(&b.id)),
-                    }))
+                    operate(
+                        Some(&TimeWithReference {
+                            value: a.start,
+                            references: join_references(&a.references, None, Some(&a.id)),
+                        }),
+                        Some(&TimeWithReference {
+                            value: b.start,
+                            references: join_references(&b.references, None, Some(&b.id)),
+                        }),
+                    )
                 };
 
                 if let Some(start) = start {
                     let end = if a.isFirst {
-                        a.end.and_then(|end|
+                        a.end.and_then(|end| {
                             Some(TimeWithReference {
                                 value: end,
                                 references: a.references.clone(),
-                            }))
+                            })
+                        })
                     } else if b.isFirst {
-                        b.end.and_then(|end|
+                        b.end.and_then(|end| {
                             Some(TimeWithReference {
                                 value: end,
                                 references: b.references.clone(),
-                            }))
+                            })
+                        })
                     } else {
-                        operate(a.end.and_then(|end| Some(&TimeWithReference {
-                            value: end,
-                            references: join_references(&a.references, None, Some(&a.id)),
-                        })), b.end.and_then(|end| Some(&TimeWithReference {
-                            value: end,
-                            references: join_references(&b.references, None, Some(&b.id)),
-                        })))
+                        operate(
+                            a.end.and_then(|end| {
+                                Some(&TimeWithReference {
+                                    value: end,
+                                    references: join_references(&a.references, None, Some(&a.id)),
+                                })
+                            }),
+                            b.end.and_then(|end| {
+                                Some(&TimeWithReference {
+                                    value: end,
+                                    references: join_references(&b.references, None, Some(&b.id)),
+                                })
+                            }),
+                        )
                     };
 
                     result.push(TimelineObjectInstance {
                         id: getId(),
                         start: start.value,
                         end: end.and_then(|e| Some(e.value)),
-                        references: join_references(&start.references, end.and_then(|e| Some(&e.references)), None),
+                        references: join_references(
+                            &start.references,
+                            end.and_then(|e| Some(&e.references)),
+                            None,
+                        ),
                         caps: join_caps(&a.caps, &b.caps),
 
                         isFirst: false,
                         originalStart: None,
                         originalEnd: None,
-                        fromInstanceId: None
+                        fromInstanceId: None,
                     })
                 }
             }
-
 
             LookupExpressionResultType::Instances(clean_instances(&result, false, false))
         } else {
@@ -306,7 +342,11 @@ pub fn operate_on_arrays(lookup0: &LookupExpressionResultType, lookup1: &LookupE
     }
 }
 
-pub fn apply_repeating_instances(instances: &Vec<TimelineObjectInstance>, repeat_time: Option<TimeWithReference>, options: &ResolveOptions) -> Vec<TimelineObjectInstance>{
+pub fn apply_repeating_instances(
+    instances: &Vec<TimelineObjectInstance>,
+    repeat_time: Option<TimeWithReference>,
+    options: &ResolveOptions,
+) -> Vec<TimelineObjectInstance> {
     if let Some(repeat_time) = &repeat_time {
         let repeated_instances = Vec::new();
 
@@ -321,8 +361,13 @@ pub fn apply_repeating_instances(instances: &Vec<TimelineObjectInstance>, repeat
         // }
 
         for instance in instances {
-            let start_time = max(options.time - ((options.time - instance.start) % repeat_time.value), instance.start);
-            let end_time = instance.end.and_then(|end| Some(end + (start_time - instance.start)));
+            let start_time = max(
+                options.time - ((options.time - instance.start) % repeat_time.value),
+                instance.start,
+            );
+            let end_time = instance
+                .end
+                .and_then(|end| Some(end + (start_time - instance.start)));
 
             // TODO
             // let cap = instance.caps
@@ -369,7 +414,10 @@ pub fn apply_repeating_instances(instances: &Vec<TimelineObjectInstance>, repeat
     }
 }
 
-pub fn apply_parent_instances(parent_instances: &Option<Vec<TimelineObjectInstance>>, value: &LookupExpressionResultType) -> LookupExpressionResultType {
+pub fn apply_parent_instances(
+    parent_instances: &Option<Vec<TimelineObjectInstance>>,
+    value: &LookupExpressionResultType,
+) -> LookupExpressionResultType {
     // TODO
     // const operate = (a: ValueWithReference | null, b: ValueWithReference | null): ValueWithReference | null => {
     //     if (a === null || b === null) return null

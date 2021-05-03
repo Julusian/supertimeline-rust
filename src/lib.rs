@@ -5,8 +5,8 @@ mod events;
 mod expression;
 mod instance;
 mod lookup_expression;
-mod state;
 mod resolver;
+mod state;
 mod util;
 
 //use crate::types::{Expression, ExpressionObj};

@@ -1,9 +1,12 @@
-use crate::instance::{ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance, ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance, TimelineObjectResolved};
+use crate::api::IsTimelineObject;
+use crate::instance::{
+    ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
+    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectInstance, TimelineObjectResolved,
+};
 use crate::util::{Time, TimelineObject};
 use std::collections::HashMap;
 use std::iter::Map;
 use std::thread::current;
-use crate::api::IsTimelineObject;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum EventType {
@@ -29,9 +32,8 @@ pub struct ResolveOptions {
     /** Limits the repeating objects to a time in the future */
     pub limitTime: Option<Time>,
     /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
-    pub resolveInstanceCollisions: bool
-    // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
-    // cache?: ResolverCache
+    pub resolveInstanceCollisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
+                                         // cache?: ResolverCache
 }
 
 /*
@@ -54,9 +56,8 @@ pub struct ResolvedTimeline {
 
 pub struct ResolvedTimelineObject {
     pub object: Box<dyn IsTimelineObject>,
-    pub resolved: TimelineObjectResolved
+    pub resolved: TimelineObjectResolved,
 }
-
 
 pub type AllStates = HashMap<String, HashMap<Time, Vec<ResolvedTimelineObjectEntry>>>;
 pub type StateInTime = HashMap<String, ResolvedTimelineObjectInstance>;

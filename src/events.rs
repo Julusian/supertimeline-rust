@@ -1,7 +1,7 @@
-use std::collections::{HashSet, HashMap};
 use crate::instance::TimelineObjectInstance;
-use crate::util::{Time, getId, join_references, add_caps_to_resuming};
+use crate::util::{add_caps_to_resuming, getId, join_references, Time};
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 pub struct EventForInstance<'a> {
     pub time: Time,
@@ -24,16 +24,16 @@ pub fn sort_events(mut events: Vec<EventForInstance>) {
             if a.instance.id == b.instance.id {
                 // If the event refer to the same ID, let the ending event be first:
                 if a.is_start && !b.is_start {
-                    return Ordering::Less
+                    return Ordering::Less;
                 } else if !a.is_start && b.is_start {
-                    return Ordering::Greater
+                    return Ordering::Greater;
                 }
             }
 
             if a.is_start && !b.is_start {
-                return Ordering::Greater
+                return Ordering::Greater;
             } else if !a.is_start && b.is_start {
-                return Ordering::Less
+                return Ordering::Less;
             }
 
             Ordering::Equal
@@ -41,7 +41,11 @@ pub fn sort_events(mut events: Vec<EventForInstance>) {
     });
 }
 
-pub fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merge: bool, allow_zero_gaps: bool) -> Vec<TimelineObjectInstance> {
+pub fn convert_events_to_instances(
+    mut events: Vec<EventForInstance>,
+    allow_merge: bool,
+    allow_zero_gaps: bool,
+) -> Vec<TimelineObjectInstance> {
     sort_events(events);
 
     let mut return_instances = Vec::new();
@@ -75,7 +79,11 @@ pub fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merg
             previous_active = true;
 
             if let Some(last_instance) = last_instance {
-                if !allow_merge && event.is_start && last_instance.end.is_none() && !active_instance_id.eq(event_id) {
+                if !allow_merge
+                    && event.is_start
+                    && last_instance.end.is_none()
+                    && !active_instance_id.eq(event_id)
+                {
                     // Start a new instance:
                     last_instance.end = Some(event.time);
                     return_instances.push(TimelineObjectInstance {
@@ -93,7 +101,10 @@ pub fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merg
                     active_instance_id = Some(event_id);
                 } else if !allow_merge && !event.is_start && active_instance_id == event_id {
                     // The active instance stopped playing, but another is still playing
-                    let latest_instance = active_instances.iter().reduce(|a,b| if a.1.time < b.1.time { b } else { a });
+                    let latest_instance =
+                        active_instances
+                            .iter()
+                            .reduce(|a, b| if a.1.time < b.1.time { b } else { a });
 
                     if let Some(latest_instance) = latest_instance {
                         // Restart that instance now:
@@ -116,12 +127,13 @@ pub fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merg
                     // The previously running ended just now
                     // resume previous instance:
                     last_instance.end = None;
-                    last_instance.references = join_references(&last_instance.references, Some(event.references), None);
+                    last_instance.references =
+                        join_references(&last_instance.references, Some(event.references), None);
                     add_caps_to_resuming(last_instance, &event.instance.caps);
                 } else if let Some(end) = last_instance.end {
                     // There is no previously running instance
                     // Start a new instance:
-                    return_instances.push( TimelineObjectInstance{
+                    return_instances.push(TimelineObjectInstance {
                         id: event_id.to_string(),
                         start: event.time,
                         end: None,
@@ -136,13 +148,14 @@ pub fn convert_events_to_instances(mut events: Vec<EventForInstance>, allow_merg
                     active_instance_id = Some(event_id);
                 } else {
                     // There is already a running instance
-                    last_instance.references = join_references(&last_instance.references, Some(event.references), None);
+                    last_instance.references =
+                        join_references(&last_instance.references, Some(event.references), None);
                     add_caps_to_resuming(last_instance, &event.instance.caps);
                 }
             } else {
                 // There is no previously running instance
                 // Start a new instance:
-                return_instances.push( TimelineObjectInstance{
+                return_instances.push(TimelineObjectInstance {
                     id: event_id.to_string(),
                     start: event.time,
                     end: None,

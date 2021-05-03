@@ -1,8 +1,8 @@
-use crate::util::TimelineObject;
-use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
-use std::collections::HashMap;
-use crate::instance::{TimelineObjectResolved, TimelineEnable};
+use crate::instance::{TimelineEnable, TimelineObjectResolved};
 use crate::resolver::resolve_timeline_obj;
+use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
+use crate::util::TimelineObject;
+use std::collections::HashMap;
 
 /*
 pub trait IsTimelineObjectChildren {
@@ -11,25 +11,24 @@ pub trait IsTimelineObjectChildren {
 */
 
 pub trait IsTimelineObject /*: IsTimelineObjectChildren */ {
-    fn id (&self) -> &str;
-    fn enable (&self) -> &Vec<TimelineEnable>;
-    fn layer (&self) -> &str;
-    fn keyframes (&self) -> Option<&Vec<Box<dyn IsTimelineKeyframe>>>;
-    fn classes (&self) -> Option<&Vec<String>>;
-    fn disabled (&self) -> bool;
+    fn id(&self) -> &str;
+    fn enable(&self) -> &Vec<TimelineEnable>;
+    fn layer(&self) -> &str;
+    fn keyframes(&self) -> Option<&Vec<Box<dyn IsTimelineKeyframe>>>;
+    fn classes(&self) -> Option<&Vec<String>>;
+    fn disabled(&self) -> bool;
     //fn is_group (&self) -> bool;
     fn children(&self) -> Option<&Vec<Box<dyn IsTimelineObject>>>;
-    fn priority (&self) -> u64;
+    fn priority(&self) -> u64;
 }
 
 pub trait IsTimelineKeyframe {
-    fn id (&self) -> &str;
-    fn enable (&self) -> &Vec<TimelineEnable>;
+    fn id(&self) -> &str;
+    fn enable(&self) -> &Vec<TimelineEnable>;
     //fn duration (&self) -> Option<TimelineKeyframeDuration>;
-    fn classes (&self) -> Option<&Vec<String>>;
-    fn disabled (&self) -> bool;
+    fn classes(&self) -> Option<&Vec<String>>;
+    fn disabled(&self) -> bool;
 }
-
 
 fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: ResolvedTimelineObject) {
     let obj_id = obj.object.id().to_string();
@@ -37,9 +36,11 @@ fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: Resolve
     if let Some(classes) = obj.object.classes() {
         for class in classes {
             if let Some(existing) = timeline.classes.get_mut(class) {
-               existing.push(obj_id.clone());
+                existing.push(obj_id.clone());
             } else {
-                timeline.classes.insert(class.to_string(), vec![obj_id.clone()]);
+                timeline
+                    .classes
+                    .insert(class.to_string(), vec![obj_id.clone()]);
             }
         }
     }
@@ -49,7 +50,9 @@ fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: Resolve
         if let Some(existing) = timeline.layers.get_mut(obj_layer) {
             existing.push(obj_id.clone());
         } else {
-            timeline.layers.insert(obj_layer.to_string(), vec![obj_id.clone()]);
+            timeline
+                .layers
+                .insert(obj_layer.to_string(), vec![obj_id.clone()]);
         }
     }
 
@@ -57,18 +60,28 @@ fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: Resolve
     timeline.objects.insert(obj_id, obj);
 }
 
-fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &Box<dyn IsTimelineObject>, depth: usize, parent_id: Option<&String>, is_keyframe: bool) {
+fn add_object_to_timeline(
+    timeline: &mut ResolvedTimeline,
+    obj: &Box<dyn IsTimelineObject>,
+    depth: usize,
+    parent_id: Option<&String>,
+    is_keyframe: bool,
+) {
     let resolved_obj = ResolvedTimelineObject {
         object: obj.clone(), // TODO - I think we can omit the children and keyframes here and save up some potentially costly cloning
         resolved: TimelineObjectResolved {
             resolved: false,
             resolving: false,
             levelDeep: Some(depth),
-            directReferences: if let Some(id) = parent_id { vec![id.clone()]} else { vec![] },
+            directReferences: if let Some(id) = parent_id {
+                vec![id.clone()]
+            } else {
+                vec![]
+            },
             parentId: parent_id.cloned(),
             isKeyframe: is_keyframe,
             isSelfReferencing: None,
-        }
+        },
     };
 
     add_object_to_resolved_timeline(timeline, resolved_obj);
@@ -77,11 +90,11 @@ fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &Box<dyn IsTimel
 
     // track child objects
     // if obj.is_group() {
-        if let Some(children) = obj.children() {
-            for child in children {
-                add_object_to_timeline(timeline, child, depth + 1, Some(&obj_id), false);
-            }
+    if let Some(children) = obj.children() {
+        for child in children {
+            add_object_to_timeline(timeline, child, depth + 1, Some(&obj_id), false);
         }
+    }
     // }
 
     // track keyframes
@@ -93,8 +106,6 @@ fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &Box<dyn IsTimel
             add_object_to_timeline(timeline, keyframeExt, depth + 1, Some(&obj_id), true);
         }
     }
-
-
 }
 
 pub fn resolve_timeline(timeline: Vec<Box<dyn IsTimelineObject>>) -> ResolvedTimeline {

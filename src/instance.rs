@@ -1,7 +1,7 @@
+use crate::expression::Expression;
 use crate::util::Time;
 use crate::util::TimelineObject;
 use std::collections::HashSet;
-use crate::expression::Expression;
 
 #[derive(Debug, Clone)]
 pub enum ResolvedTimelineObjectEntry {
@@ -94,7 +94,7 @@ pub struct TimelineEnable {
     pub duration: Option<Expression>,
 
     /** (Optional) Makes the object repeat with given interval */
-    pub repeating: Option<Expression>
+    pub repeating: Option<Expression>,
 }
 
 #[derive(Clone)]
@@ -112,5 +112,5 @@ pub struct ParsedTimelineEnable {
     pub duration: Option<Expression>,
 
     /** (Optional) Makes the object repeat with given interval */
-    pub repeating: Option<Expression>
+    pub repeating: Option<Expression>,
 }
