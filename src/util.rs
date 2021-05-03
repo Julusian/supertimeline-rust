@@ -25,7 +25,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
             isFirst: true,
             start: 0,
             end: None,
-            references: Vec::new(),
+            references: HashSet::new(),
 
             originalStart: None,
             originalEnd: None,
@@ -125,7 +125,7 @@ pub fn clean_instances (instances: &Vec<TimelineObjectInstance>, allow_merge: bo
 struct EventForInstance<'a> {
     time: Time,
     is_start: bool,
-    references: &'a Vec<String>,
+    references: &'a HashSet<String>,
     instance: &'a TimelineObjectInstance,
 }
 
@@ -313,7 +313,7 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
    cap_map.values().cloned()
 }
 
-pub fn join_references(a: &Vec<String>, b: Option<&Vec<String>>, c: Option<&String>)-> Vec<String> {
+pub fn join_references(a: &HashSet<String>, b: Option<&HashSet<String>>, c: Option<&String>)-> HashSet<String> {
     let mut new_refs = HashSet::new();
     new_refs.extend(a);
 
@@ -325,7 +325,7 @@ pub fn join_references(a: &Vec<String>, b: Option<&Vec<String>>, c: Option<&Stri
         new_refs.insert(c);
     }
 
-    new_refs.into_iter().collect()
+    new_refs
 }
 
 

@@ -1,6 +1,5 @@
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
-use std::ops::Deref;
 
 lazy_static::lazy_static! {
     static ref OPERATORS: &'static [&'static str] = &["&", "|", "+", "-", "*", "/", "%", "!"];

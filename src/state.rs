@@ -3,6 +3,7 @@ use crate::util::{Time, TimelineObject};
 use std::collections::HashMap;
 use std::iter::Map;
 use std::thread::current;
+use crate::api::IsTimelineObject;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum EventType {
@@ -41,7 +42,7 @@ pub struct ResolvedTimeline {
 }
 
 pub struct ResolvedTimelineObject {
-    pub object: TimelineObject,
+    pub object: Box<dyn IsTimelineObject>,
     pub resolved: TimelineObjectResolved
 }
 

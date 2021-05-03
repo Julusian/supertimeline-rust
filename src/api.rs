@@ -4,24 +4,52 @@ use std::collections::HashMap;
 use crate::instance::TimelineObjectResolved;
 use crate::resolver::resolve_timeline_obj;
 
-fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: ResolvedTimelineObject) {
-    let obj_id = obj.object.id.clone();
+/*
+pub trait IsTimelineObjectChildren {
+    fn children (&self) -> Option<Vec<Box<IsTimelineObject>>>;
+}
+*/
 
-    if let Some(classes) = obj.object.classes {
+pub trait IsTimelineObject /*: IsTimelineObjectChildren */ {
+    fn id (&self) -> &str;
+    //fn enable (&self) -> TimelineEnableType;
+    fn layer (&self) -> &str;
+    //fn keyframes (&self) -> Option<Vec<TimelineKeyframe>>;
+    fn classes (&self) -> Option<&Vec<String>>;
+    fn disabled (&self) -> bool;
+    //fn is_group (&self) -> bool;
+    fn children(&self) -> Option<&Vec<Box<dyn IsTimelineObject>>>;
+    fn priority (&self) -> u64;
+}
+
+pub trait IsTimelineKeyframe: Clone {
+    fn id (&self) -> &str;
+    //fn enable (&self) -> TimelineEnableType;
+    //fn duration (&self) -> Option<TimelineKeyframeDuration>;
+    fn classes (&self) -> Option<&Vec<String>>;
+    fn disabled (&self) -> bool;
+}
+
+
+fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: ResolvedTimelineObject) {
+    let obj_id = obj.object.id().to_string();
+
+    if let Some(classes) = obj.object.classes() {
         for class in classes {
             if let Some(existing) = timeline.classes.get_mut(class) {
                existing.push(obj_id.clone());
             } else {
-                timeline.classes.insert(class, vec![obj_id.clone()]);
+                timeline.classes.insert(class.to_string(), vec![obj_id.clone()]);
             }
         }
     }
 
-    if obj.layer.len() > 0 {
-        if let Some(existing) = timeline.layers.get_mut(obj.layer) {
+    let obj_layer = obj.object.layer();
+    if obj_layer.len() > 0 {
+        if let Some(existing) = timeline.layers.get_mut(obj_layer) {
             existing.push(obj_id.clone());
         } else {
-            timeline.layers.insert(obj.layer, vec![obj_id.clone()]);
+            timeline.layers.insert(obj_layer.to_string(), vec![obj_id.clone()]);
         }
     }
 
@@ -29,7 +57,7 @@ fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: Resolve
     timeline.objects.insert(obj_id, obj);
 }
 
-fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &TimelineObject, depth: usize, parent_id: Option<&String>, is_keyframe: bool) {
+fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &Box<dyn IsTimelineObject>, depth: usize, parent_id: Option<&String>, is_keyframe: bool) {
     let resolved_obj = ResolvedTimelineObject {
         object: obj.clone(), // TODO - I think we can omit the children and keyframes here and save up some potentially costly cloning
         resolved: TimelineObjectResolved {
@@ -45,29 +73,31 @@ fn add_object_to_timeline(timeline: &mut ResolvedTimeline, obj: &TimelineObject,
 
     add_object_to_resolved_timeline(timeline, resolved_obj);
 
+    let obj_id = obj.id().to_string();
+
     // track child objects
-    if obj.is_group {
-        if let Some(children) = obj.children {
+    // if obj.is_group() {
+        if let Some(children) = obj.children() {
             for child in children {
-                add_object_to_timeline(timeline, child, depth + 1, Some(&obj.id), false);
+                add_object_to_timeline(timeline, child, depth + 1, Some(&obj_id), false);
             }
         }
-    }
+    // }
 
     // track keyframes
-    if let Some(keyframes) = obj.keyframes {
+    if let Some(keyframes) = obj.keyframes() {
         for keyframe in keyframes {
             let keyframeExt = {
                 // TODO
             };
-            add_object_to_timeline(timeline, keyframeExt, depth + 1, Some(&obj.id), true);
+            add_object_to_timeline(timeline, keyframeExt, depth + 1, Some(&obj_id), true);
         }
     }
 
 
 }
 
-pub fn resolve_timeline(timeline: Vec<TimelineObject>) -> ResolvedTimeline {
+pub fn resolve_timeline(timeline: Vec<Box<dyn IsTimelineObject>>) -> ResolvedTimeline {
     let mut resolved_timeline = ResolvedTimeline {
         objects: HashMap::new(),
         classes: HashMap::new(),
@@ -82,7 +112,7 @@ pub fn resolve_timeline(timeline: Vec<TimelineObject>) -> ResolvedTimeline {
     // Step 2: go though and resolve the objects
     // TODO - support cache
     for obj in resolved_timeline.objects.values() {
-        // TODO - immutability here will cause nightmares
+        // TODO - the immutability here will cause me nightmares
         resolve_timeline_obj(&resolved_timeline, obj);
     }
 
