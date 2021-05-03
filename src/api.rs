@@ -29,29 +29,35 @@ pub trait IsTimelineKeyframe {
     fn disabled(&self) -> bool;
 }
 
-fn add_object_to_resolved_timeline(timeline: &mut ResolvedTimeline, obj: ResolvedTimelineObject) {
-    let obj_id = obj.object.id().to_string();
+fn add_object_to_resolved_timeline(
+    timeline: &mut ResolvedTimeline,
+    obj: ResolvedTimelineObject,
+    raw_obj: Option<&Box<dyn IsTimelineObject>>,
+) {
+    let obj_id = obj.object_id.to_string();
 
-    if let Some(classes) = obj.object.classes() {
-        for class in classes {
-            if let Some(existing) = timeline.classes.get_mut(class) {
+    if let Some(raw_obj) = raw_obj {
+        if let Some(classes) = raw_obj.classes() {
+            for class in classes {
+                if let Some(existing) = timeline.classes.get_mut(class) {
+                    existing.push(obj_id.clone());
+                } else {
+                    timeline
+                        .classes
+                        .insert(class.to_string(), vec![obj_id.clone()]);
+                }
+            }
+        }
+
+        let obj_layer = raw_obj.layer();
+        if obj_layer.len() > 0 {
+            if let Some(existing) = timeline.layers.get_mut(obj_layer) {
                 existing.push(obj_id.clone());
             } else {
                 timeline
-                    .classes
-                    .insert(class.to_string(), vec![obj_id.clone()]);
+                    .layers
+                    .insert(obj_layer.to_string(), vec![obj_id.clone()]);
             }
-        }
-    }
-
-    let obj_layer = obj.object.layer();
-    if obj_layer.len() > 0 {
-        if let Some(existing) = timeline.layers.get_mut(obj_layer) {
-            existing.push(obj_id.clone());
-        } else {
-            timeline
-                .layers
-                .insert(obj_layer.to_string(), vec![obj_id.clone()]);
         }
     }
 
@@ -66,8 +72,13 @@ fn add_object_to_timeline(
     parent_id: Option<&String>,
     is_keyframe: bool,
 ) {
+    // TODO - duplicate id check
+    // if (resolvedTimeline.objects[obj.id]) throw Error(`All timelineObjects must be unique! (duplicate: "${obj.id}")`)
+
     let resolved_obj = ResolvedTimelineObject {
-        object: obj.clone(), // TODO - I think we can omit the children and keyframes here and save up some potentially costly cloning
+        object_id: obj.id().to_string(),
+        object_enable: obj.enable().clone(),
+        // object: obj.clone(), // TODO - I think we can omit the children and keyframes here and save up some potentially costly cloning
         resolved: TimelineObjectResolved {
             resolved: false,
             resolving: false,
@@ -80,19 +91,23 @@ fn add_object_to_timeline(
             },
             parentId: parent_id.cloned(),
             isKeyframe: is_keyframe,
-            isSelfReferencing: None,
+            is_self_referencing: false,
         },
     };
 
-    add_object_to_resolved_timeline(timeline, resolved_obj);
-
-    let obj_id = obj.id().to_string();
+    add_object_to_resolved_timeline(timeline, resolved_obj, Some(obj));
 
     // track child objects
     // if obj.is_group() {
     if let Some(children) = obj.children() {
         for child in children {
-            add_object_to_timeline(timeline, child, depth + 1, Some(&obj_id), false);
+            add_object_to_timeline(
+                timeline,
+                child,
+                depth + 1,
+                Some(&resolved_obj.object_id),
+                false,
+            );
         }
     }
     // }
@@ -100,10 +115,21 @@ fn add_object_to_timeline(
     // track keyframes
     if let Some(keyframes) = obj.keyframes() {
         for keyframe in keyframes {
-            let keyframeExt = {
-                // TODO
+            let resolved_obj = ResolvedTimelineObject {
+                object_id: keyframe.id().to_string(),
+                object_enable: keyframe.enable().clone(),
+                resolved: TimelineObjectResolved {
+                    resolved: false,
+                    resolving: false,
+                    levelDeep: Some(depth + 1),
+                    instances: None,
+                    directReferences: set![resolved_obj.object_id.clone()],
+                    parentId: Some(resolved_obj.object_id.clone()),
+                    isKeyframe: true,
+                    is_self_referencing: false,
+                },
             };
-            add_object_to_timeline(timeline, keyframeExt, depth + 1, Some(&obj_id), true);
+            add_object_to_resolved_timeline(timeline, resolved_obj, None)
         }
     }
 }

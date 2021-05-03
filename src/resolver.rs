@@ -1,5 +1,7 @@
 use crate::events::{convert_events_to_instances, EventForInstance};
-use crate::expression::{interpret_expression, simplify_expression, Expression, ExpressionError, is_constant};
+use crate::expression::{
+    interpret_expression, is_constant, simplify_expression, Expression, ExpressionError,
+};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
@@ -34,9 +36,7 @@ pub fn resolve_timeline_obj(
     if obj.resolved.resolved {
         Ok(())
     } else if obj.resolved.resolving {
-        Err(ResolveError::CircularDependency(
-            obj.object.id().to_string(),
-        ))
+        Err(ResolveError::CircularDependency(obj.object_id.to_string()))
     } else {
         // TODO
         obj.resolved.resolving = true;
@@ -45,8 +45,8 @@ pub fn resolve_timeline_obj(
 
         let mut instances = Vec::new();
 
-        let obj_id = obj.object.id();
-        for enable in obj.object.enable() {
+        let obj_id = &obj.object_id;
+        for enable in &obj.object_enable {
             let repeating_expr = if let Some(expr) = &enable.repeating {
                 match interpret_expression(expr) {
                     Ok(val) => val,
@@ -210,7 +210,7 @@ pub fn resolve_timeline_obj(
                     // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
                     let lookup_end =
                         lookup_expression(resolved_timeline, obj, &end_expr, &ObjectRefType::End);
-                    let looked_up_ends = if refer_to_parent && is_constant(end_expr) {
+                    let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
                         apply_parent_instances(&parent_instances, &lookup_end.result)
                     } else {
                         lookup_end.result

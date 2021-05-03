@@ -45,7 +45,7 @@ pub struct TimelineObjectResolved {
     /** True if object is a keyframe */
     pub isKeyframe: bool,
     /** True if object is referencing itself (only directly, not indirectly via another object) */
-    pub isSelfReferencing: Option<bool>,
+    pub is_self_referencing: bool,
     /** Ids of all other objects that directly affects this object (ie through direct reference, classes, etc) */
     pub directReferences: HashSet<String>,
 }
@@ -97,20 +97,20 @@ pub struct TimelineEnable {
     pub repeating: Option<Expression>,
 }
 
-#[derive(Clone)]
-pub struct ParsedTimelineEnable {
-    /** (Optional) The start time of the object. (Cannot be combined with .while) */
-    pub enable_start: Option<Expression>,
-
-    /** (Optional) The end time of the object (Cannot be combined with .while or .duration) */
-    pub enable_end: Option<Expression>,
-
-    /** (Optional) Enables the object WHILE expression is true (ie sets both the start and end). (Cannot be combined with .start, .end or .duration ) */
-    pub enable_while: Option<Expression>,
-
-    /** (Optional) The duration of an object */
-    pub duration: Option<Expression>,
-
-    /** (Optional) Makes the object repeat with given interval */
-    pub repeating: Option<Expression>,
-}
+// #[derive(Clone)]
+// pub struct ParsedTimelineEnable {
+//     /** (Optional) The start time of the object. (Cannot be combined with .while) */
+//     pub enable_start: Option<Expression>,
+//
+//     /** (Optional) The end time of the object (Cannot be combined with .while or .duration) */
+//     pub enable_end: Option<Expression>,
+//
+//     /** (Optional) Enables the object WHILE expression is true (ie sets both the start and end). (Cannot be combined with .start, .end or .duration ) */
+//     pub enable_while: Option<Expression>,
+//
+//     /** (Optional) The duration of an object */
+//     pub duration: Option<Expression>,
+//
+//     /** (Optional) Makes the object repeat with given interval */
+//     pub repeating: Option<Expression>,
+// }

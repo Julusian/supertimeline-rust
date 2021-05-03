@@ -154,22 +154,22 @@ fn lookup_expression_str(
     if let Some(expression_references) = match_expression_references(resolved_timeline, expr_str) {
         let mut referencedObjs: Vec<&state::ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
-            if ref_obj_id != &obj.object.id {
+            if ref_obj_id != &obj.object_id {
                 if let Some(ref_obj) = resolved_timeline.objects.get(ref_obj_id) {
                     referencedObjs.push(ref_obj);
                 }
             } else {
                 if obj.resolved.resolving {
-                    obj.resolved.isSelfReferencing = Some(true);
+                    obj.resolved.is_self_referencing = true;
                 }
             }
         }
 
-        if obj.resolved.isSelfReferencing {
+        if obj.resolved.is_self_referencing {
             // Exclude any self-referencing objects:
             referencedObjs = referencedObjs
                 .into_iter()
-                .filter(|&ref_obj| !ref_obj.resolved.isSelfReferencing)
+                .filter(|&ref_obj| !ref_obj.resolved.is_self_referencing)
                 .collect::<Vec<_>>();
         }
 
@@ -192,11 +192,14 @@ fn lookup_expression_str(
                 for ref_obj in referencedObjs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved {
-                        if obj.resolved.isSelfReferencing && ref_obj.resolved.isSelfReferencing {
+                        if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
+                        {
                             // If the querying object is self-referencing, exclude any other self-referencing objects,
                             // ignore the object
                         } else {
-                            if let Some(first_instance) = ref_obj.resolved.instances.first() {
+                            if let Some(first_instance) =
+                                ref_obj.resolved.instances.and_then(|i| i.first())
+                            {
                                 if let Some(end) = first_instance.end {
                                     let duration = end - first_instance.start;
                                     let mut references = HashSet::new();
@@ -237,7 +240,8 @@ fn lookup_expression_str(
                 for ref_obj in referencedObjs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved {
-                        if obj.resolved.isSelfReferencing && ref_obj.resolved.isSelfReferencing {
+                        if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
+                        {
                             // If the querying object is self-referencing, exclude any other self-referencing objects,
                             // ignore the object
                         } else {

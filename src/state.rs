@@ -1,7 +1,6 @@
-use crate::api::IsTimelineObject;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
-    ResolvedTimelineObjectInstanceKeyframe, TimelineObjectResolved,
+    ResolvedTimelineObjectInstanceKeyframe, TimelineEnable, TimelineObjectResolved,
 };
 use crate::util::Time;
 use std::collections::HashMap;
@@ -54,7 +53,9 @@ pub struct ResolvedTimeline {
 }
 
 pub struct ResolvedTimelineObject {
-    pub object: Box<dyn IsTimelineObject>,
+    pub object_id: String,
+    pub object_enable: Vec<TimelineEnable>,
+    // pub object: Box<dyn IsTimelineObject>,
     pub resolved: TimelineObjectResolved,
 }
 

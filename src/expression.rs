@@ -111,11 +111,11 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
             if let Expression::Number(l2) = l {
                 if let Expression::Number(r2) = r {
                     match obj.o {
-                        ExpressionOperator::Remainder => Ok(Expression::Number(l % r)), // TODO - can this panic?
-                        ExpressionOperator::Add => Ok(Expression::Number(l + r)),
-                        ExpressionOperator::Subtract => Ok(Expression::Number(l - r)),
-                        ExpressionOperator::Multiply => Ok(Expression::Number(l * r)),
-                        ExpressionOperator::Divide => Ok(Expression::Number(l / r)), // TODO - can this panic?
+                        ExpressionOperator::Remainder => Ok(Expression::Number(l2 % r2)), // TODO - can this panic?
+                        ExpressionOperator::Add => Ok(Expression::Number(l2 + r2)),
+                        ExpressionOperator::Subtract => Ok(Expression::Number(l2 - r2)),
+                        ExpressionOperator::Multiply => Ok(Expression::Number(l2 * r2)),
+                        ExpressionOperator::Divide => Ok(Expression::Number(l2 / r2)), // TODO - can this panic?
                         // boolean operators arent supported
                         _ => Ok(ExpressionObj { l, o: obj.o, r }.wrap()),
                     }

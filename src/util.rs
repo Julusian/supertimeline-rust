@@ -5,6 +5,7 @@ use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 
 pub type Time = u64;
 
@@ -164,14 +165,17 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
     cap_map.into_iter().map(|e| e.1).collect()
 }
 
-pub fn clone_hashset_with_value<T: Clone>(a: &HashSet<T>, c: &T) -> HashSet<T> {
+pub fn clone_hashset_with_value<T: Clone + Eq + Hash>(a: &HashSet<T>, c: &T) -> HashSet<T> {
     let mut res = HashSet::new();
     res.extend(a.iter().cloned());
     res.insert(c.clone());
     res
 }
 
-pub fn join_maybe_hashset<T: Clone>(a: Option<&HashSet<T>>, b: Option<&HashSet<T>>) -> HashSet<T> {
+pub fn join_maybe_hashset<T: Clone + Eq + Hash>(
+    a: Option<&HashSet<T>>,
+    b: Option<&HashSet<T>>,
+) -> HashSet<T> {
     let mut res = HashSet::new();
     if let Some(a) = a {
         res.extend(a.iter().cloned());
@@ -182,7 +186,7 @@ pub fn join_maybe_hashset<T: Clone>(a: Option<&HashSet<T>>, b: Option<&HashSet<T
     res
 }
 
-pub fn join_hashset<T: Clone>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
+pub fn join_hashset<T: Clone + Eq + Hash>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
     let mut res = HashSet::new();
     res.extend(a.iter().cloned());
     res.extend(b.iter().cloned());

@@ -48,7 +48,7 @@ pub fn convert_events_to_instances(
 ) -> Vec<TimelineObjectInstance> {
     sort_events(events);
 
-    let mut return_instances = Vec::new();
+    let mut return_instances: Vec<TimelineObjectInstance> = Vec::new();
 
     let mut active_instances = HashMap::new();
     let mut active_instance_id = None;
@@ -90,7 +90,7 @@ pub fn convert_events_to_instances(
                         id: getId(),
                         start: event.time,
                         end: None,
-                        references: event.references.cloned(),
+                        references: event.references.clone(),
 
                         isFirst: false,
                         caps: Vec::new(),
@@ -110,10 +110,10 @@ pub fn convert_events_to_instances(
                         // Restart that instance now:
                         last_instance.end = Some(event.time);
                         return_instances.push(TimelineObjectInstance {
-                            id: event_id + '_' + getId(),
+                            id: format!("{}_{}", event_id, getId()),
                             start: event.time,
                             end: None,
-                            references: latest_instance.references.cloned(),
+                            references: latest_instance.1.references.clone(),
 
                             isFirst: false,
                             caps: Vec::new(),
@@ -138,7 +138,7 @@ pub fn convert_events_to_instances(
                         start: event.time,
                         end: None,
                         references: event.references.clone(),
-                        caps: event.instance.caps.cloned(),
+                        caps: event.instance.caps.clone(),
 
                         isFirst: false,
                         originalStart: None,
@@ -160,7 +160,7 @@ pub fn convert_events_to_instances(
                     start: event.time,
                     end: None,
                     references: event.references.clone(),
-                    caps: event.instance.caps.cloned(),
+                    caps: event.instance.caps.clone(),
 
                     isFirst: false,
                     originalStart: None,
