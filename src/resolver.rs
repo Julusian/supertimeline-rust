@@ -1,5 +1,5 @@
 use crate::events::{convert_events_to_instances, EventForInstance};
-use crate::expression::{interpret_expression, Expression, ExpressionError};
+use crate::expression::{interpret_expression, simplify_expression, Expression, ExpressionError, is_constant};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
@@ -81,10 +81,18 @@ pub fn resolve_timeline_obj(
                 LookupExpressionResultType::Null => None,
             };
 
-            // TODO - simplifyExpression
-            let start = &enable
-                .enable_while
-                .unwrap_or(enable.enable_start.unwrap_or(Expression::Null));
+            let start = simplify_expression(
+                &enable
+                    .enable_while
+                    .unwrap_or(enable.enable_start.unwrap_or(Expression::Null)),
+            )
+            .or_else(|e| {
+                Err(ResolveError::BadExpression((
+                    obj_id.to_string(),
+                    "simplify",
+                    e,
+                )))
+            })?;
 
             let mut parent_instances = None;
             let mut has_parent = false;
@@ -105,14 +113,14 @@ pub fn resolve_timeline_obj(
 
                 direct_references.extend(lookup.all_references);
 
-                if is_constant(start) {
+                if is_constant(&start) {
                     // Only use parent if the expression resolves to a number (ie doesn't contain any references)
                     refer_to_parent = true;
                 }
             }
 
             let lookup_start =
-                lookup_expression(resolved_timeline, obj, start, &ObjectRefType::Start);
+                lookup_expression(resolved_timeline, obj, &start, &ObjectRefType::Start);
             direct_references.extend(lookup_start.all_references);
 
             let looked_up_starts = if refer_to_parent {

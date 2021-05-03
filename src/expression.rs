@@ -78,6 +78,57 @@ impl Display for ExpressionObj {
     }
 }
 
+pub fn is_constant(expression: &Expression) -> bool {
+    match expression {
+        Expression::Null => true,
+        Expression::Number(_) => true,
+        Expression::String(_) => false,
+        Expression::Expression(_) => true,
+        Expression::Invert(inner_expr) => is_constant(inner_expr),
+    }
+}
+
+pub fn simplify_expression(expression: &Expression) -> Result<Expression, ExpressionError> {
+    match expression {
+        Expression::String(str) => {
+            let new_expr = interpret_expression_string(str)?;
+            match &new_expr {
+                // recurse only if it is not a string, to avoid an infinite loop
+                Expression::String(str) => Ok(new_expr),
+                _ => simplify_expression(&new_expr),
+            }
+        }
+        Expression::Null => Ok(Expression::Null),
+        Expression::Invert(innerExpr) => {
+            simplify_expression(innerExpr).and_then(|e| Ok(Expression::Invert(Box::new(e))))
+        }
+
+        Expression::Number(val) => Ok(Expression::Number(*val)),
+        Expression::Expression(obj) => {
+            let l = simplify_expression(&obj.l)?;
+            let r = simplify_expression(&obj.r)?;
+
+            if let Expression::Number(l2) = l {
+                if let Expression::Number(r2) = r {
+                    match obj.o {
+                        ExpressionOperator::Remainder => Ok(Expression::Number(l % r)), // TODO - can this panic?
+                        ExpressionOperator::Add => Ok(Expression::Number(l + r)),
+                        ExpressionOperator::Subtract => Ok(Expression::Number(l - r)),
+                        ExpressionOperator::Multiply => Ok(Expression::Number(l * r)),
+                        ExpressionOperator::Divide => Ok(Expression::Number(l / r)), // TODO - can this panic?
+                        // boolean operators arent supported
+                        _ => Ok(ExpressionObj { l, o: obj.o, r }.wrap()),
+                    }
+                } else {
+                    Ok(ExpressionObj { l, o: obj.o, r }.wrap())
+                }
+            } else {
+                Ok(ExpressionObj { l, o: obj.o, r }.wrap())
+            }
+        }
+    }
+}
+
 pub fn interpret_expression(expression: &Expression) -> Result<Expression, ExpressionError> {
     match expression {
         Expression::Null => Ok(Expression::Null),

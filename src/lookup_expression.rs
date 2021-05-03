@@ -476,3 +476,29 @@ fn get_side_events(res: &LookupExpressionResult, is_left: bool) -> Vec<SideEvent
 
     events
 }
+
+// pub fn execute_operator(o: ExpressionOperator, a: Time, b: Time): Time {
+//     match o {
+//         ExpressionOperator::Add => a + b,
+//         ExpressionOperator::Subtract => a - b
+//         ExpressionOperator::Multiply => |a, b| {
+//             Some(TimeWithReference {
+//                 value: a.value * b.value,
+//                 references: join_hashset(&a.references, &b.references),
+//             })
+//         },
+//         ExpressionOperator::Divide => |a, b| {
+//             Some(TimeWithReference {
+//                 value: a.value / b.value, // TODO - can this panic?
+//                 references: join_hashset(&a.references, &b.references),
+//             })
+//         },
+//         ExpressionOperator::Remainder => |a, b| {
+//             Some(TimeWithReference {
+//                 value: a.value % b.value, // TODO - can this panic?
+//                 references: join_hashset(&a.references, &b.references),
+//             })
+//         },
+//         _ => |a, b| None,
+//     };
+// }
