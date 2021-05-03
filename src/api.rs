@@ -152,9 +152,9 @@ pub fn resolve_timeline(
 
     // Step 2: go though and resolve the objects
     // TODO - support cache
-    for obj in resolved_timeline.objects.values() {
+    for obj in resolved_timeline.objects.values_mut() {
         // TODO - the immutability here will cause me nightmares
-        resolve_timeline_obj(&resolved_timeline, obj);
+        resolve_timeline_obj(&mut resolved_timeline, obj);
     }
 
     resolved_timeline

@@ -30,7 +30,7 @@ pub enum ResolveError {
 }
 
 pub fn resolve_timeline_obj(
-    resolved_timeline: &state::ResolvedTimeline,
+    resolved_timeline: &mut state::ResolvedTimeline,
     obj: &mut state::ResolvedTimelineObject,
 ) -> Result<(), ResolveError> {
     if obj.resolved.resolved {

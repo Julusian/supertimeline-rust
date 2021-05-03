@@ -429,7 +429,9 @@ pub fn cap_instances(
             let mut return_instances = Vec::new();
 
             for instance in instances {
-                if let Some(new_instance) = cap_instance(instance, parent_instances.as_ref()) {
+                if let Some(new_instance) =
+                    cap_instance(instance, &parent_instances.iter().collect())
+                {
                     return_instances.push(new_instance);
                 }
             }
@@ -443,11 +445,11 @@ pub fn cap_instance(
     instance: &TimelineObjectInstance,
     parent_instances: &Vec<&TimelineObjectInstance>,
 ) -> Option<TimelineObjectInstance> {
-    let mut parent = None;
+    let mut parent: Option<&TimelineObjectInstance> = None;
 
     let instance_end = instance.end.unwrap_or(Time::MAX);
 
-    for p in parent_instances {
+    for p in *parent_instances {
         let p_end = p.end.unwrap_or(Time::MAX);
         // TODO - could this not be achieved by instance.start <= p.end && instance.end >= p.start ?
         if (instance.start >= p.start && instance.start < p_end)

@@ -3,37 +3,44 @@ use crate::util::{add_caps_to_resuming, getId, join_hashset, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-pub struct EventForInstance<'a> {
-    pub time: Time,
-    pub is_start: bool,
-    pub references: &'a HashSet<String>,
-    pub instance: &'a TimelineObjectInstance,
-    pub id: Option<String>,
+pub trait IsEvent {
+    fn time(&self) -> Time;
+    fn is_start(&self) -> bool;
+    fn id(&self) -> &str;
 }
 
-pub fn sort_events(mut events: Vec<EventForInstance>) {
+pub fn sort_events<T: IsEvent>(events: &mut Vec<T>) {
     events.sort_by(|a, b| {
-        if a.time > b.time {
+        let a_time = a.time();
+        let b_time = b.time();
+
+        if a_time > b_time {
             Ordering::Greater
-        } else if a.time < b.time {
+        } else if a_time < b_time {
             Ordering::Less
         } else {
             // const aId = a.data && (a.data.id || (a.data.instance && a.data.instance.id))
             // const bId = b.data && (b.data.id || (b.data.instance && b.data.instance.id))
 
-            if a.instance.id == b.instance.id {
+            let a_start = a.is_start();
+            let b_start = b.is_start();
+
+            let a_id = a.id();
+            let b_id = b.id();
+
+            if a_id == b_id {
                 // If the event refer to the same ID, let the ending event be first:
-                if a.is_start && !b.is_start {
+                if a_start && !b_start {
                     return Ordering::Less;
-                } else if !a.is_start && b.is_start {
+                } else if !a_start && b_start {
                     return Ordering::Greater;
                 }
-            }
-
-            if a.is_start && !b.is_start {
-                return Ordering::Greater;
-            } else if !a.is_start && b.is_start {
-                return Ordering::Less;
+            } else {
+                if a_start && !b_start {
+                    return Ordering::Greater;
+                } else if !a_start && b_start {
+                    return Ordering::Less;
+                }
             }
 
             Ordering::Equal
@@ -41,12 +48,37 @@ pub fn sort_events(mut events: Vec<EventForInstance>) {
     });
 }
 
+pub struct EventForInstance<'a> {
+    pub time: Time,
+    pub is_start: bool,
+    pub references: &'a HashSet<String>,
+    pub instance: &'a TimelineObjectInstance,
+    pub id: Option<String>,
+}
+impl<'a> IsEvent for EventForInstance<'a> {
+    fn time(&self) -> u64 {
+        self.time
+    }
+
+    fn is_start(&self) -> bool {
+        self.is_start
+    }
+
+    fn id(&self) -> &str {
+        if let Some(id) = &self.id {
+            id
+        } else {
+            &self.instance.id
+        }
+    }
+}
+
 pub fn convert_events_to_instances(
     mut events: Vec<EventForInstance>,
     allow_merge: bool,
     allow_zero_gaps: bool,
 ) -> Vec<TimelineObjectInstance> {
-    sort_events(events);
+    sort_events(&mut events);
 
     let mut return_instances: Vec<TimelineObjectInstance> = Vec::new();
 
