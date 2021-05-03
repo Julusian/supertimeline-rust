@@ -1,6 +1,7 @@
 use crate::api::ResolverContext;
 use crate::instance::TimelineObjectInstance;
-use crate::util::{add_caps_to_resuming, join_hashset, Time};
+use crate::references::ReferencesBuilder;
+use crate::util::{add_caps_to_resuming, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
@@ -182,8 +183,10 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         // The previously running ended just now
                         // resume previous instance:
                         last_instance.end = None;
-                        last_instance.references =
-                            join_hashset(&last_instance.references, event.references);
+                        last_instance.references = ReferencesBuilder::new()
+                            .add(&last_instance.references)
+                            .add(event.references)
+                            .done();
                         add_caps_to_resuming(last_instance, &event.instance.caps);
                     } else if let Some(end) = last_instance.end {
                         // There is no previously running instance
@@ -203,8 +206,10 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         active_instance_id = Some(event_id);
                     } else {
                         // There is already a running instance
-                        last_instance.references =
-                            join_hashset(&last_instance.references, event.references);
+                        last_instance.references = ReferencesBuilder::new()
+                            .add(&last_instance.references)
+                            .add(event.references)
+                            .done();
                         add_caps_to_resuming(last_instance, &event.instance.caps);
                     }
                 } else {

@@ -5,10 +5,9 @@ use crate::expression::{
 };
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
+use crate::references::ReferencesBuilder;
 use crate::state;
-use crate::util::{
-    apply_parent_instances, apply_repeating_instances, cap_instance, join_hashset, Time,
-};
+use crate::util::{apply_parent_instances, apply_repeating_instances, cap_instance, Time};
 use std::cmp::min;
 use std::collections::HashSet;
 
@@ -39,7 +38,6 @@ pub fn resolve_timeline_obj(
     } else if obj.resolved.resolving {
         Err(ResolveError::CircularDependency(obj.object_id.to_string()))
     } else {
-        // TODO
         obj.resolved.resolving = true;
 
         let mut direct_references = HashSet::new();
@@ -313,8 +311,10 @@ pub fn resolve_timeline_obj(
                         for event in events {
                             if event.is_start {
                                 let endTime = event.time + duration_val;
-                                let references =
-                                    join_hashset(&event.instance.references, &duration2.references);
+                                let references = ReferencesBuilder::new()
+                                    .add(&event.instance.references)
+                                    .add(&duration2.references)
+                                    .done();
 
                                 let index = i_end;
                                 i_start = i_end + 1;

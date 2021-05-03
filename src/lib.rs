@@ -5,6 +5,7 @@ mod events;
 mod expression;
 mod instance;
 mod lookup_expression;
+mod references;
 mod resolver;
 mod state;
 mod util;

@@ -4,6 +4,8 @@ use crate::state::{ResolveOptions, ResolvedTimelineObject};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+pub const DEFAULT_LIMIT_COUNT: usize = 2;
+
 /*
 pub trait IsTimelineObjectChildren {
     fn children (&self) -> Option<Vec<Box<IsTimelineObject>>>;
@@ -79,7 +81,6 @@ fn add_object_to_timeline(
     let resolved_obj = ResolvedTimelineObject {
         object_id: obj.id().to_string(),
         object_enable: obj.enable().clone(),
-        // object: obj.clone(), // TODO - I think we can omit the children and keyframes here and save up some potentially costly cloning
         resolved: TimelineObjectResolved {
             resolved: false,
             resolving: false,

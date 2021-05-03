@@ -1,12 +1,12 @@
-use crate::api::ResolverContext;
+use crate::api::{ResolverContext, DEFAULT_LIMIT_COUNT};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::{Cap, TimelineObjectInstance};
 use crate::lookup_expression::LookupExpressionResultType;
+use crate::references::ReferencesBuilder;
 use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 pub type Time = u64;
 
@@ -42,10 +42,10 @@ pub fn invert_instances(
                 isFirst: true,
                 start: 0,
                 end: None,
-                references: clone_hashset_with_value(
-                    &first_instance.references,
-                    &first_instance.id,
-                ),
+                references: ReferencesBuilder::new()
+                    .add(&first_instance.references)
+                    .add_id(&first_instance.id)
+                    .done(),
                 caps: Vec::new(),
 
                 // TODO - what are these for if they arent set here?
@@ -67,7 +67,10 @@ pub fn invert_instances(
                     isFirst: false,
                     start: end,
                     end: None,
-                    references: clone_hashset_with_value(&instance.references, &instance.id),
+                    references: ReferencesBuilder::new()
+                        .add(&instance.references)
+                        .add_id(&instance.id)
+                        .done(),
                     caps: instance.caps,
 
                     // TODO - what are these for if they arent set here?
@@ -159,33 +162,33 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
     cap_map.into_iter().map(|e| e.1).collect()
 }
 
-pub fn clone_hashset_with_value<T: Clone + Eq + Hash>(a: &HashSet<T>, c: &T) -> HashSet<T> {
-    let mut res = HashSet::new();
-    res.extend(a.iter().cloned());
-    res.insert(c.clone());
-    res
-}
-
-pub fn join_maybe_hashset<T: Clone + Eq + Hash>(
-    a: Option<&HashSet<T>>,
-    b: Option<&HashSet<T>>,
-) -> HashSet<T> {
-    let mut res = HashSet::new();
-    if let Some(a) = a {
-        res.extend(a.iter().cloned());
-    }
-    if let Some(b) = b {
-        res.extend(b.iter().cloned());
-    }
-    res
-}
-
-pub fn join_hashset<T: Clone + Eq + Hash>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
-    let mut res = HashSet::new();
-    res.extend(a.iter().cloned());
-    res.extend(b.iter().cloned());
-    res
-}
+// pub fn clone_hashset_with_value<T: Clone + Eq + Hash>(a: &HashSet<T>, c: &T) -> HashSet<T> {
+//     let mut res = HashSet::new();
+//     res.extend(a.iter().cloned());
+//     res.insert(c.clone());
+//     res
+// }
+//
+// pub fn join_maybe_hashset<T: Clone + Eq + Hash>(
+//     a: Option<&HashSet<T>>,
+//     b: Option<&HashSet<T>>,
+// ) -> HashSet<T> {
+//     let mut res = HashSet::new();
+//     if let Some(a) = a {
+//         res.extend(a.iter().cloned());
+//     }
+//     if let Some(b) = b {
+//         res.extend(b.iter().cloned());
+//     }
+//     res
+// }
+//
+// pub fn join_hashset<T: Clone + Eq + Hash>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
+//     let mut res = HashSet::new();
+//     res.extend(a.iter().cloned());
+//     res.extend(b.iter().cloned());
+//     res
+// }
 
 fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<TimelineObjectInstance>> {
     match a {
@@ -244,11 +247,17 @@ where
                     operate(
                         Some(&TimeWithReference {
                             value: a.start,
-                            references: clone_hashset_with_value(&a.references, &a.id),
+                            references: ReferencesBuilder::new()
+                                .add(&a.references)
+                                .add_id(&a.id)
+                                .done(),
                         }),
                         Some(&TimeWithReference {
                             value: b.start,
-                            references: clone_hashset_with_value(&b.references, &b.id),
+                            references: ReferencesBuilder::new()
+                                .add(&b.references)
+                                .add_id(&b.id)
+                                .done(),
                         }),
                     )
                 };
@@ -273,13 +282,19 @@ where
                             a.end.and_then(|end| {
                                 Some(&TimeWithReference {
                                     value: end,
-                                    references: clone_hashset_with_value(&a.references, &a.id),
+                                    references: ReferencesBuilder::new()
+                                        .add(&a.references)
+                                        .add_id(&a.id)
+                                        .done(),
                                 })
                             }),
                             b.end.and_then(|end| {
                                 Some(&TimeWithReference {
                                     value: end,
-                                    references: clone_hashset_with_value(&b.references, &b.id),
+                                    references: ReferencesBuilder::new()
+                                        .add(&b.references)
+                                        .add_id(&b.id)
+                                        .done(),
                                 })
                             }),
                         )
@@ -289,10 +304,10 @@ where
                         id: ctx.get_id(),
                         start: start.value,
                         end: end.and_then(|e| Some(e.value)),
-                        references: join_maybe_hashset(
-                            Some(&start.references),
-                            end.and_then(|e| Some(&e.references)),
-                        ),
+                        references: ReferencesBuilder::new()
+                            .add(&start.references)
+                            .add_some(end.and_then(|e| Some(&e.references)))
+                            .done(),
                         caps: join_caps(&a.caps, &b.caps),
 
                         isFirst: false,
@@ -319,7 +334,7 @@ pub fn apply_repeating_instances(
     options: &ResolveOptions,
 ) -> Vec<TimelineObjectInstance> {
     if let Some(repeat_time) = &repeat_time {
-        let repeated_instances = Vec::new();
+        let mut repeated_instances = Vec::new();
 
         // TODO - why was this necessary?
         // if (isReference(instances)) {
@@ -332,51 +347,65 @@ pub fn apply_repeating_instances(
         // }
 
         for instance in instances {
-            let start_time = max(
+            let mut start_time = max(
                 options.time - ((options.time - instance.start) % repeat_time.value),
                 instance.start,
             );
-            let end_time = instance
+            let mut end_time = instance
                 .end
                 .and_then(|end| Some(end + (start_time - instance.start)));
 
-            // TODO
-            // let cap = instance.caps
-            // const cap: Cap | null = (
-            //     instance.caps ?
-            // _.find(instance.caps, (cap) => instance.references.indexOf(cap.id) !== -1)
-            //     : null
-            // ) || null
-            //
-            // const limit = options.limitCount || 2
-            // for (let i = 0; i < limit; i++) {
-            //     if (
-            //         options.limitTime &&
-            //             startTime >= options.limitTime
-            //     ) break
-            //
-            //     const cappedStartTime: Time = (
-            //         cap ?
-            //     Math.max(cap.start, startTime) :
-            //         startTime
-            //     )
-            //     const cappedEndTime: Time | null = (
-            //         cap && cap.end !== null && endTime !== null ?
-            //     Math.min(cap.end, endTime) :
-            //         endTime
-            //     )
-            //     if ((cappedEndTime || Infinity) > cappedStartTime) {
-            //         repeatedInstances.push({
-            //             id: getId(),
-            //             start: cappedStartTime,
-            //             end: cappedEndTime,
-            //             references: joinReferences(instance.id, instance.references, repeatTime0.references)
-            //         })
-            //     }
-            //
-            //     startTime += repeatTime
-            //     if (endTime !== null) endTime += repeatTime
-            // }
+            let cap = instance
+                .caps
+                .iter()
+                .find(|cap| instance.references.contains(&cap.id));
+
+            let limit = options.limitCount.unwrap_or(DEFAULT_LIMIT_COUNT);
+            for i in 0..limit {
+                if let Some(limit_time) = options.limitTime {
+                    if start_time >= limit_time {
+                        break;
+                    }
+                }
+
+                let capped_start_time = cap
+                    .and_then(|cap| Some(max(cap.start, start_time)))
+                    .unwrap_or(start_time);
+                let capped_end_time = if let Some(end_time) = end_time {
+                    Some(
+                        cap.and_then(|cap| cap.end)
+                            .and_then(|cap_end| Some(min(cap_end, end_time)))
+                            .unwrap_or(end_time),
+                    )
+                } else {
+                    None
+                };
+
+                if capped_end_time.unwrap_or(Time::MAX) > capped_start_time {
+                    let references = ReferencesBuilder::new()
+                        .add_id(&instance.id)
+                        .add(&instance.references)
+                        .add(&repeat_time.references)
+                        .done();
+                    repeated_instances.push(TimelineObjectInstance {
+                        id: ctx.get_id(),
+                        start: capped_start_time,
+                        end: capped_end_time,
+                        references,
+
+                        isFirst: false,
+                        originalStart: None,
+                        originalEnd: None,
+                        caps: Vec::new(),
+                        fromInstanceId: None,
+                    })
+                }
+
+                start_time += repeat_time.value;
+                if let Some(end_time0) = &end_time {
+                    end_time = Some(end_time0 + repeat_time.value);
+                }
+            }
         }
 
         clean_instances(ctx, &repeated_instances, false, false)
@@ -396,7 +425,10 @@ pub fn apply_parent_instances(
                 if let Some(b) = b {
                     Some(TimeWithReference {
                         value: a.value + b.value,
-                        references: join_hashset(&a.references, &b.references),
+                        references: ReferencesBuilder::new()
+                            .add(&a.references)
+                            .add(&b.references)
+                            .done(),
                     })
                 } else {
                     None

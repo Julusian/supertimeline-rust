@@ -2,13 +2,11 @@ use crate::api::{ResolvedTimeline, ResolverContext};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::{Cap, TimelineObjectInstance};
+use crate::references::ReferencesBuilder;
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::state::ResolvedTimelineObject;
-use crate::util::{
-    clean_instances, invert_instances, join_caps, join_hashset, join_maybe_hashset,
-    operate_on_arrays, Time,
-};
+use crate::util::{clean_instances, invert_instances, join_caps, operate_on_arrays, Time};
 use regex::Regex;
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -88,7 +86,7 @@ pub fn lookup_expression(
 
 struct MatchExpressionReferences {
     pub remaining_expression: String,
-    pub object_ids_to_reference: Vec<String>, // TODO - should this be a set?
+    pub object_ids_to_reference: Vec<String>, // TODO: this could be a set, but it isn't modified after creation so is safe as is
     pub all_references: HashSet<String>,
 }
 fn match_expression_references(
@@ -157,28 +155,28 @@ fn lookup_expression_str(
     // }
 
     if let Some(expression_references) = match_expression_references(resolved_timeline, expr_str) {
-        let mut referencedObjs: Vec<&mut ResolvedTimelineObject> = Vec::new();
+        let mut referenced_objs: Vec<&mut ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
-            if ref_obj_id != &obj.object_id {
-                if let Some(ref_obj) = resolved_timeline.objects.get_mut(ref_obj_id) {
-                    referencedObjs.push(ref_obj);
-                }
-            } else {
+            if ref_obj_id.eq(&obj.object_id) {
                 if obj.resolved.resolving {
                     obj.resolved.is_self_referencing = true;
+                }
+            } else {
+                if let Some(ref_obj) = resolved_timeline.objects.get_mut(ref_obj_id) {
+                    referenced_objs.push(ref_obj);
                 }
             }
         }
 
         if obj.resolved.is_self_referencing {
             // Exclude any self-referencing objects:
-            referencedObjs = referencedObjs
+            referenced_objs = referenced_objs
                 .into_iter()
                 .filter(|&ref_obj| !ref_obj.resolved.is_self_referencing)
                 .collect::<Vec<_>>();
         }
 
-        if referencedObjs.len() > 0 {
+        if referenced_objs.len() > 0 {
             let refType = {
                 // TODO - these should be looser regex
                 if expression_references.remaining_expression == "start" {
@@ -194,7 +192,7 @@ fn lookup_expression_str(
 
             if refType == ObjectRefType::Duration {
                 let mut instance_durations = Vec::new();
-                for ref_obj in referencedObjs {
+                for ref_obj in referenced_objs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved.resolved {
                         if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
@@ -244,7 +242,7 @@ fn lookup_expression_str(
 
                 let invertAndIgnoreFirstIfZero = refType == ObjectRefType::End;
 
-                for ref_obj in referencedObjs {
+                for ref_obj in referenced_objs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved.resolved {
                         if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
@@ -336,7 +334,10 @@ fn lookup_expression_obj(
             };
 
             let mut result_value = calc_result(left_value, right_value);
-            let result_references = join_hashset(&l.all_references, &r.all_references);
+            let result_references = ReferencesBuilder::new()
+                .add(&l.all_references)
+                .add(&r.all_references)
+                .done();
 
             let mut left_instance = None;
             let mut right_instance = None;
@@ -382,10 +383,10 @@ fn lookup_expression_obj(
                     let new_result_value = calc_result(left_value, right_value);
 
                     if new_result_value != result_value {
-                        let result_references = join_maybe_hashset(
-                            left_instance.and_then(|i| Some(&i.references)),
-                            right_instance.and_then(|i| Some(&i.references)),
-                        );
+                        let result_references = ReferencesBuilder::new()
+                            .add_some(left_instance.and_then(|i| Some(&i.references)))
+                            .add_some(right_instance.and_then(|i| Some(&i.references)))
+                            .done();
                         let result_caps = join_caps(
                             left_instance
                                 .and_then(|i| Some(&i.caps))
@@ -406,49 +407,38 @@ fn lookup_expression_obj(
                 all_references,
             }
         } else {
-            let operator: fn(
-                a: &TimeWithReference,
-                b: &TimeWithReference,
-            ) -> Option<TimeWithReference> = match expr.o {
-                ExpressionOperator::Add => |a, b| {
-                    Some(TimeWithReference {
-                        value: a.value + b.value,
-                        references: join_hashset(&a.references, &b.references),
-                    })
-                },
-                ExpressionOperator::Subtract => |a, b| {
-                    Some(TimeWithReference {
-                        value: a.value - b.value,
-                        references: join_hashset(&a.references, &b.references),
-                    })
-                },
-                ExpressionOperator::Multiply => |a, b| {
-                    Some(TimeWithReference {
-                        value: a.value * b.value,
-                        references: join_hashset(&a.references, &b.references),
-                    })
-                },
-                ExpressionOperator::Divide => |a, b| {
-                    Some(TimeWithReference {
-                        value: a.value / b.value, // TODO - can this panic?
-                        references: join_hashset(&a.references, &b.references),
-                    })
-                },
-                ExpressionOperator::Remainder => |a, b| {
-                    Some(TimeWithReference {
-                        value: a.value % b.value, // TODO - can this panic?
-                        references: join_hashset(&a.references, &b.references),
-                    })
-                },
-                _ => |a, b| None,
-            };
+            let operator: fn(a: &TimeWithReference, b: &TimeWithReference) -> Option<Time> =
+                match expr.o {
+                    ExpressionOperator::Add => |a, b| Some(a.value + b.value),
+                    ExpressionOperator::Subtract => |a, b| Some(a.value - b.value),
+                    ExpressionOperator::Multiply => |a, b| Some(a.value * b.value),
+                    ExpressionOperator::Divide => |a, b| {
+                        Some(
+                            a.value / b.value, // TODO - can this panic?
+                        )
+                    },
+                    ExpressionOperator::Remainder => |a, b| {
+                        Some(
+                            a.value % b.value, // TODO - can this panic?
+                        )
+                    },
+                    _ => |a, b| None,
+                };
 
             let operator2 = |a: Option<&TimeWithReference>,
                              b: Option<&TimeWithReference>|
              -> Option<TimeWithReference> {
                 if let Some(a2) = a {
                     if let Some(b2) = b {
-                        operator(a2, b2)
+                        operator(a2, b2).and_then(|value| {
+                            Some(TimeWithReference {
+                                value,
+                                references: ReferencesBuilder::new()
+                                    .add(&a2.references)
+                                    .add(&b2.references)
+                                    .done(),
+                            })
+                        })
                     } else {
                         None
                     }
