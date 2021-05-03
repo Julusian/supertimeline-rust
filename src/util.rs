@@ -445,53 +445,64 @@ pub fn cap_instances(
             let mut return_instances = Vec::new();
 
             for instance in instances {
-                let mut parent = None;
-
-                let instance_end = instance.end.unwrap_or(Time::MAX);
-
-                for p in parent_instances {
-                    let p_end = p.end.unwrap_or(Time::MAX);
-                    // TODO - could this not be achieved by instance.start <= p.end && instance.end >= p.start ?
-                    if (instance.start >= p.start && instance.start < p_end)
-                        || (instance.start < p.start && instance_end > p_end)
-                    {
-                        if let Some(old_parent) = parent {
-                            if p_end > old_parent.end.unwrap_or(Time::MAX) {
-                                parent = some(p);
-                            }
-                        } else {
-                            parent = Some(p);
-                        }
-                    }
-                }
-
-                if parent.is_none() {
-                    for p in parent_instances {
-                        if instance_end > p.start && instance_end <= p.end.unwrap_or(Time::MAX) {
-                            parent = Some(p);
-                        }
-                    }
-                }
-
-                if let Some(parent) = parent {
-                    let mut instance2 = instance.clone();
-
-                    if let Some(p_end) = parent.end {
-                        if instance.end.unwrap_or(Time::MAX) > p_end {
-                            set_instance_end_time(&mut instance2, p_end)
-                        }
-                    }
-
-                    if instance.start < parent.start {
-                        setInstanceStartTime(&mut instance2, parent.start)
-                    }
-
-                    return_instances.push(instance2);
+                if let Some(new_instance) = cap_instance(instance, parent_instances.as_ref()) {
+                    return_instances.push(new_instance);
                 }
             }
 
             return_instances
         }
+    }
+}
+
+pub fn cap_instance(
+    instance: &TimelineObjectInstance,
+    parent_instances: &Vec<&TimelineObjectInstance>,
+) -> Option<TimelineObjectInstance> {
+    let mut parent = None;
+
+    let instance_end = instance.end.unwrap_or(Time::MAX);
+
+    for p in parent_instances {
+        let p_end = p.end.unwrap_or(Time::MAX);
+        // TODO - could this not be achieved by instance.start <= p.end && instance.end >= p.start ?
+        if (instance.start >= p.start && instance.start < p_end)
+            || (instance.start < p.start && instance_end > p_end)
+        {
+            if let Some(old_parent) = parent {
+                if p_end > old_parent.end.unwrap_or(Time::MAX) {
+                    parent = some(p);
+                }
+            } else {
+                parent = Some(p);
+            }
+        }
+    }
+
+    if parent.is_none() {
+        for p in parent_instances {
+            if instance_end > p.start && instance_end <= p.end.unwrap_or(Time::MAX) {
+                parent = Some(p);
+            }
+        }
+    }
+
+    if let Some(parent) = parent {
+        let mut instance2 = instance.clone();
+
+        if let Some(p_end) = parent.end {
+            if instance.end.unwrap_or(Time::MAX) > p_end {
+                set_instance_end_time(&mut instance2, p_end)
+            }
+        }
+
+        if instance.start < parent.start {
+            setInstanceStartTime(&mut instance2, parent.start)
+        }
+
+        Some(instance2)
+    } else {
+        None
     }
 }
 

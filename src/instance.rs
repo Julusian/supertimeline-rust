@@ -37,7 +37,7 @@ pub struct TimelineObjectResolved {
     /** Is set to true while object is resolved (to prevent circular references) */
     pub resolving: bool,
     /** Instances of the object on the timeline */
-    // instances: Array<TimelineObjectInstance>
+    pub instances: Option<Vec<TimelineObjectInstance>>,
     /** Increases the more levels inside of a group the objects is */
     pub levelDeep: Option<usize>,
     /** Id of the parent object */

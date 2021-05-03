@@ -264,7 +264,7 @@ fn lookup_expression_str(
                 }
             }
         } else {
-            return LookupExpressionResult::Null();
+            LookupExpressionResult::Null()
         }
     } else {
         LookupExpressionResult::Null()

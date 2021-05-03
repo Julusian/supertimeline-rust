@@ -1,9 +1,11 @@
 use crate::events::{convert_events_to_instances, EventForInstance};
-use crate::expression::{interpret_expression, Expression, ExpressionError, ExpressionOperator};
+use crate::expression::{interpret_expression, Expression, ExpressionError};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
-use crate::util::{apply_parent_instances, getId, join_references, Time};
+use crate::util::{
+    apply_parent_instances, apply_repeating_instances, cap_instance, getId, join_references, Time,
+};
 use std::cmp::min;
 use std::collections::HashSet;
 
@@ -22,6 +24,7 @@ pub struct TimeWithReference {
 pub enum ResolveError {
     CircularDependency(String),
     BadExpression((String, &'static str, ExpressionError)),
+    InstancesArrayNotSupported((String, &'static str)),
 }
 
 pub fn resolve_timeline_obj(
@@ -68,7 +71,12 @@ pub fn resolve_timeline_obj(
             direct_references.extend(looked_up_repeating.all_references);
 
             let looked_up_repeating2 = match looked_up_repeating.result {
-                LookupExpressionResultType::Instances(_) => return Err(x),
+                LookupExpressionResultType::Instances(_) => {
+                    return Err(ResolveError::InstancesArrayNotSupported((
+                        obj_id.to_string(),
+                        "repeating",
+                    )))
+                }
                 LookupExpressionResultType::TimeRef(r) => Some(r),
                 LookupExpressionResultType::Null => None,
             };
@@ -92,12 +100,12 @@ pub fn resolve_timeline_obj(
                     LookupExpressionResultType::Instances(instances) => {
                         parent_instances = Some(instances);
                     }
-                    LookupExpressionResultType::Null() => {}
+                    LookupExpressionResultType::Null => {}
                 }
 
-                direct_references.extend(&lookup.all_references);
+                direct_references.extend(lookup.all_references);
 
-                if is_constannt(start) {
+                if is_constant(start) {
                     // Only use parent if the expression resolves to a number (ie doesn't contain any references)
                     refer_to_parent = true;
                 }
@@ -132,7 +140,7 @@ pub fn resolve_timeline_obj(
                             fromInstanceId: None,
                         })
                     }
-                    LookupExpressionResultType::Null() => {}
+                    LookupExpressionResultType::Null => {}
                 }
             } else {
                 let mut events = Vec::new();
@@ -177,7 +185,7 @@ pub fn resolve_timeline_obj(
                             references: &time_ref.references,
                         })
                     }
-                    LookupExpressionResultType::Null() => {}
+                    LookupExpressionResultType::Null => {}
                 }
 
                 if let Some(enable_end) = &enable.enable_end {
@@ -200,7 +208,7 @@ pub fn resolve_timeline_obj(
                         lookup_end.result
                     };
 
-                    direct_references.extend(&lookup_end.all_references);
+                    direct_references.extend(lookup_end.all_references);
                     match &looked_up_ends {
                         LookupExpressionResultType::Instances(instances) => {
                             for instance in instances {
@@ -239,7 +247,7 @@ pub fn resolve_timeline_obj(
                                 references: &time_ref.references,
                             })
                         }
-                        LookupExpressionResultType::Null() => {}
+                        LookupExpressionResultType::Null => {}
                     }
                 } else if let Some(enable_duration) = &enable.duration {
                     let duration_expr = match interpret_expression(enable_duration) {
@@ -264,7 +272,10 @@ pub fn resolve_timeline_obj(
                     let looked_up_duration = match lookup_duration.result {
                         LookupExpressionResultType::Instances(instances) => {
                             if instances.len() > 1 {
-                                return Err(ResolveError::BadExpression());
+                                return Err(ResolveError::InstancesArrayNotSupported((
+                                    obj_id.to_string(),
+                                    "duration",
+                                )));
                             } else if let Some(instance) = instances.get(0) {
                                 Some(TimeWithReference {
                                     value: instance.start,
@@ -275,7 +286,7 @@ pub fn resolve_timeline_obj(
                             }
                         }
                         LookupExpressionResultType::TimeRef(time_ref) => Some(time_ref),
-                        LookupExpressionResultType::Null() => None,
+                        LookupExpressionResultType::Null => None,
                     };
 
                     if let Some(duration2) = looked_up_duration {
@@ -339,7 +350,7 @@ pub fn resolve_timeline_obj(
                         if let Some(referred_parent_instance) = referred_parent_instance {
                             // If the child refers to its parent, there should be one specific instance to cap into
                             let capped_instance =
-                                cap_instances([instance], [referred_parent_instance]);
+                                cap_instance(instance, &vec![referred_parent_instance]);
 
                             // TODO
                             // if (cappedInstance) {
@@ -380,21 +391,21 @@ pub fn resolve_timeline_obj(
             }
 
             instances.extend(apply_repeating_instances(
-                new_instances,
-                &looked_up_repeating2,
+                &new_instances,
+                looked_up_repeating2,
                 &resolved_timeline.options,
             ));
         }
 
         // filter out zero-length instances:
         let filtered_instances = instances
-            .iter()
+            .into_iter()
             .filter(|instance| instance.end.unwrap_or(u64::MAX) > instance.start)
             .collect();
 
         obj.resolved.resolved = true;
         obj.resolved.resolving = false;
-        obj.resolved.instances = filtered_instances;
+        obj.resolved.instances = Some(filtered_instances);
         obj.resolved.directReferences = direct_references;
 
         Ok(())

@@ -1,7 +1,7 @@
 use crate::instance::{TimelineEnable, TimelineObjectResolved};
 use crate::resolver::resolve_timeline_obj;
 use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /*
 pub trait IsTimelineObjectChildren {
@@ -72,10 +72,11 @@ fn add_object_to_timeline(
             resolved: false,
             resolving: false,
             levelDeep: Some(depth),
+            instances: None,
             directReferences: if let Some(id) = parent_id {
-                vec![id.clone()]
+                set![id.clone()]
             } else {
-                vec![]
+                set![]
             },
             parentId: parent_id.cloned(),
             isKeyframe: is_keyframe,
