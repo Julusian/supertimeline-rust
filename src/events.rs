@@ -1,5 +1,5 @@
 use crate::instance::TimelineObjectInstance;
-use crate::util::{add_caps_to_resuming, getId, join_references, Time};
+use crate::util::{add_caps_to_resuming, clone_hashset_with_value, getId, join_hashset, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
@@ -128,7 +128,7 @@ pub fn convert_events_to_instances(
                     // resume previous instance:
                     last_instance.end = None;
                     last_instance.references =
-                        join_references(&last_instance.references, Some(event.references), None);
+                        join_hashset(&last_instance.references, event.references);
                     add_caps_to_resuming(last_instance, &event.instance.caps);
                 } else if let Some(end) = last_instance.end {
                     // There is no previously running instance
@@ -149,7 +149,7 @@ pub fn convert_events_to_instances(
                 } else {
                     // There is already a running instance
                     last_instance.references =
-                        join_references(&last_instance.references, Some(event.references), None);
+                        join_hashset(&last_instance.references, event.references);
                     add_caps_to_resuming(last_instance, &event.instance.caps);
                 }
             } else {

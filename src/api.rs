@@ -1,6 +1,6 @@
 use crate::instance::{TimelineEnable, TimelineObjectResolved};
 use crate::resolver::resolve_timeline_obj;
-use crate::state::{ResolvedTimeline, ResolvedTimelineObject};
+use crate::state::{ResolveOptions, ResolvedTimeline, ResolvedTimelineObject};
 use std::collections::{HashMap, HashSet};
 
 /*
@@ -108,11 +108,15 @@ fn add_object_to_timeline(
     }
 }
 
-pub fn resolve_timeline(timeline: Vec<Box<dyn IsTimelineObject>>) -> ResolvedTimeline {
+pub fn resolve_timeline(
+    timeline: Vec<Box<dyn IsTimelineObject>>,
+    options: ResolveOptions,
+) -> ResolvedTimeline {
     let mut resolved_timeline = ResolvedTimeline {
         objects: HashMap::new(),
         classes: HashMap::new(),
         layers: HashMap::new(),
+        options,
     };
 
     // Step 1: pre-populate resolvedTimeline with objects

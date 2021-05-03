@@ -4,7 +4,8 @@ use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
 use crate::util::{
-    apply_parent_instances, apply_repeating_instances, cap_instance, getId, join_references, Time,
+    apply_parent_instances, apply_repeating_instances, cap_instance, clone_hashset_with_value,
+    getId, join_hashset, Time,
 };
 use std::cmp::min;
 use std::collections::HashSet;
@@ -300,11 +301,8 @@ pub fn resolve_timeline_obj(
                         for event in events {
                             if event.is_start {
                                 let endTime = event.time + duration_val;
-                                let references = join_references(
-                                    &event.instance.references,
-                                    Some(&duration2.references),
-                                    None,
-                                );
+                                let references =
+                                    join_hashset(&event.instance.references, &duration2.references);
 
                                 let index = i_end;
                                 i_start = i_end + 1;
@@ -400,7 +398,7 @@ pub fn resolve_timeline_obj(
         // filter out zero-length instances:
         let filtered_instances = instances
             .into_iter()
-            .filter(|instance| instance.end.unwrap_or(u64::MAX) > instance.start)
+            .filter(|instance| instance.end.unwrap_or(Time::MAX) > instance.start)
             .collect();
 
         obj.resolved.resolved = true;

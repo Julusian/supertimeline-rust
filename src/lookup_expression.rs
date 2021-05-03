@@ -4,8 +4,8 @@ use crate::instance::TimelineObjectInstance;
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::util::{
-    clean_instances, getId, invert_instances, join_caps, join_references2, join_references3,
-    join_references4, operate_on_arrays, Time,
+    clean_instances, getId, invert_instances, join_caps, join_hashset, join_maybe_hashset,
+    operate_on_arrays, Time,
 };
 use regex::Regex;
 use std::collections::HashSet;
@@ -315,7 +315,7 @@ fn lookup_expression_obj(
             };
 
             let mut result_value = calc_result(left_value, right_value);
-            let result_references = join_references3(&l.instances, &r.instances);
+            let result_references = join_hashset(&l.all_references, &r.all_references);
 
             let mut left_instance = None;
             let mut right_instance = None;
@@ -346,7 +346,7 @@ fn lookup_expression_obj(
                 let next_time = events
                     .get(i + 1)
                     .and_then(|e| Some(e.time))
-                    .unwrap_or(u64::MAX);
+                    .unwrap_or(Time::MAX);
 
                 if event.is_left {
                     left_value = event.is_start;
@@ -360,7 +360,7 @@ fn lookup_expression_obj(
                     let new_result_value = calc_result(left_value, right_value);
 
                     if new_result_value != result_value {
-                        let result_references = join_references4(
+                        let result_references = join_maybe_hashset(
                             left_instance.and_then(|i| Some(&i.references)),
                             right_instance.and_then(|i| Some(&i.references)),
                         );
@@ -388,31 +388,31 @@ fn lookup_expression_obj(
                 ExpressionOperator::Add => |a, b| {
                     Some(TimeWithReference {
                         value: a.value + b.value,
-                        references: join_references2(&a.references, &b.references),
+                        references: join_hashset(&a.references, &b.references),
                     })
                 },
                 ExpressionOperator::Subtract => |a, b| {
                     Some(TimeWithReference {
                         value: a.value - b.value,
-                        references: join_references2(&a.references, &b.references),
+                        references: join_hashset(&a.references, &b.references),
                     })
                 },
                 ExpressionOperator::Multiply => |a, b| {
                     Some(TimeWithReference {
                         value: a.value * b.value,
-                        references: join_references2(&a.references, &b.references),
+                        references: join_hashset(&a.references, &b.references),
                     })
                 },
                 ExpressionOperator::Divide => |a, b| {
                     Some(TimeWithReference {
                         value: a.value / b.value, // TODO - can this panic?
-                        references: join_references2(&a.references, &b.references),
+                        references: join_hashset(&a.references, &b.references),
                     })
                 },
                 ExpressionOperator::Remainder => |a, b| {
                     Some(TimeWithReference {
                         value: a.value % b.value, // TODO - can this panic?
-                        references: join_references2(&a.references, &b.references),
+                        references: join_hashset(&a.references, &b.references),
                     })
                 },
                 _ => |a, b| None,

@@ -10,7 +10,7 @@ lazy_static::lazy_static! {
     };
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum ExpressionOperator {
     And,
     Or,
@@ -60,7 +60,7 @@ pub struct ParsedExpression {
     pub r: Box<ParsedExpression>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionObj {
     pub l: Expression,
     // pub o: String,

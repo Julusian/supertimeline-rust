@@ -1,3 +1,4 @@
+use crate::events::{convert_events_to_instances, EventForInstance};
 use crate::instance::{Cap, TimelineObjectInstance};
 use crate::lookup_expression::LookupExpressionResultType;
 use crate::resolver::TimeWithReference;
@@ -47,10 +48,9 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
                 isFirst: true,
                 start: 0,
                 end: None,
-                references: join_references(
+                references: clone_hashset_with_value(
                     &first_instance.references,
-                    None,
-                    Some(&first_instance.id),
+                    &first_instance.id,
                 ),
                 caps: Vec::new(),
 
@@ -73,7 +73,7 @@ pub fn invert_instances(instances: &Vec<TimelineObjectInstance>) -> Vec<Timeline
                     isFirst: false,
                     start: end,
                     end: None,
-                    references: join_references(&instance.references, None, Some(&instance.id)),
+                    references: clone_hashset_with_value(&instance.references, &instance.id),
                     caps: instance.caps,
 
                     // TODO - what are these for if they arent set here?
@@ -112,6 +112,7 @@ pub fn clean_instances(
                     is_start: true,
                     references: &instance.references,
                     instance,
+                    id: None,
                 });
 
                 if let Some(end) = instance.end {
@@ -120,6 +121,7 @@ pub fn clean_instances(
                         is_start: false,
                         references: &instance.references,
                         instance,
+                        id: None,
                     });
                 }
             }
@@ -153,67 +155,38 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
     let mut cap_map = HashMap::new();
 
     for cap in a {
-        cap_map.insert(&cap.id, cap);
+        cap_map.insert(&cap.id, cap.clone());
     }
     for cap in b {
-        cap_map.insert(&cap.id, cap);
+        cap_map.insert(&cap.id, cap.clone());
     }
 
-    cap_map.values().cloned()
+    cap_map.into_iter().map(|e| e.1).collect()
 }
 
-pub fn join_references(
-    a: &HashSet<String>,
-    b: Option<&HashSet<String>>,
-    c: Option<&String>,
-) -> HashSet<String> {
-    let mut new_refs = HashSet::new();
-    new_refs.extend(a);
-
-    if let Some(b) = b {
-        new_refs.extend(b);
-    }
-
-    if let Some(c) = c {
-        new_refs.insert(c);
-    }
-
-    new_refs
+pub fn clone_hashset_with_value<T: Clone>(a: &HashSet<T>, c: &T) -> HashSet<T> {
+    let mut res = HashSet::new();
+    res.extend(a.iter().cloned());
+    res.insert(c.clone());
+    res
 }
 
-pub fn join_references3(
-    a: &Option<TimeWithReference>,
-    b: &Option<TimeWithReference>,
-) -> HashSet<String> {
-    let mut new_refs = HashSet::new();
+pub fn join_maybe_hashset<T: Clone>(a: Option<&HashSet<T>>, b: Option<&HashSet<T>>) -> HashSet<T> {
+    let mut res = HashSet::new();
     if let Some(a) = a {
-        new_refs.extend(&a.references);
+        res.extend(a.iter().cloned());
     }
     if let Some(b) = b {
-        new_refs.extend(&b.references);
+        res.extend(b.iter().cloned());
     }
-    new_refs.cloned()
+    res
 }
 
-pub fn join_references4(
-    a: Option<&HashSet<String>>,
-    b: Option<&HashSet<String>>,
-) -> HashSet<String> {
-    let mut new_refs = HashSet::new();
-    if let Some(a) = a {
-        new_refs.extend(&a);
-    }
-    if let Some(b) = b {
-        new_refs.extend(&b);
-    }
-    new_refs.cloned()
-}
-
-pub fn join_references2(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
-    let mut new_refs = HashSet::new();
-    new_refs.extend(a);
-    new_refs.extend(b);
-    new_refs.cloned()
+pub fn join_hashset<T: Clone>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
+    let mut res = HashSet::new();
+    res.extend(a.iter().cloned());
+    res.extend(b.iter().cloned());
+    res
 }
 
 fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<TimelineObjectInstance>> {
@@ -272,11 +245,11 @@ pub fn operate_on_arrays(
                     operate(
                         Some(&TimeWithReference {
                             value: a.start,
-                            references: join_references(&a.references, None, Some(&a.id)),
+                            references: clone_hashset_with_value(&a.references, &a.id),
                         }),
                         Some(&TimeWithReference {
                             value: b.start,
-                            references: join_references(&b.references, None, Some(&b.id)),
+                            references: clone_hashset_with_value(&b.references, &b.id),
                         }),
                     )
                 };
@@ -301,13 +274,13 @@ pub fn operate_on_arrays(
                             a.end.and_then(|end| {
                                 Some(&TimeWithReference {
                                     value: end,
-                                    references: join_references(&a.references, None, Some(&a.id)),
+                                    references: clone_hashset_with_value(&a.references, &a.id),
                                 })
                             }),
                             b.end.and_then(|end| {
                                 Some(&TimeWithReference {
                                     value: end,
-                                    references: join_references(&b.references, None, Some(&b.id)),
+                                    references: clone_hashset_with_value(&b.references, &b.id),
                                 })
                             }),
                         )
@@ -317,10 +290,9 @@ pub fn operate_on_arrays(
                         id: getId(),
                         start: start.value,
                         end: end.and_then(|e| Some(e.value)),
-                        references: join_references(
-                            &start.references,
+                        references: join_maybe_hashset(
+                            Some(&start.references),
                             end.and_then(|e| Some(&e.references)),
-                            None,
                         ),
                         caps: join_caps(&a.caps, &b.caps),
 
@@ -417,21 +389,29 @@ pub fn apply_parent_instances(
     parent_instances: &Option<Vec<TimelineObjectInstance>>,
     value: &LookupExpressionResultType,
 ) -> LookupExpressionResultType {
-    let operate = |a: Option<&TimeWithReference>, b: Option<&TimeWithReference>| {
-        if let Some(a) = a {
-            if let Some(b) = b {
-                Some(TimeWithReference {
-                    value: a.value + b.value,
-                    references: join_references(&a.references, Some(&b.references), None),
-                })
+    if let Some(parent_instances) = parent_instances {
+        let operate = |a: Option<&TimeWithReference>, b: Option<&TimeWithReference>| {
+            if let Some(a) = a {
+                if let Some(b) = b {
+                    Some(TimeWithReference {
+                        value: a.value + b.value,
+                        references: join_hashset(&a.references, &b.references),
+                    })
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
-        }
-    };
-    operate_on_arrays(parentInstances, value, operate)
+        };
+        operate_on_arrays(
+            &LookupExpressionResultType::Instances(parent_instances.clone()),
+            value,
+            operate,
+        )
+    } else {
+        LookupExpressionResultType::Null
+    }
 }
 
 pub fn cap_instances(
@@ -471,7 +451,7 @@ pub fn cap_instance(
         {
             if let Some(old_parent) = parent {
                 if p_end > old_parent.end.unwrap_or(Time::MAX) {
-                    parent = some(p);
+                    parent = Some(p);
                 }
             } else {
                 parent = Some(p);
@@ -497,7 +477,7 @@ pub fn cap_instance(
         }
 
         if instance.start < parent.start {
-            setInstanceStartTime(&mut instance2, parent.start)
+            set_instance_start_time(&mut instance2, parent.start)
         }
 
         Some(instance2)

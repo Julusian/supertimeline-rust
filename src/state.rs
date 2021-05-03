@@ -20,6 +20,7 @@ pub struct NextEvent {
     pub objectId: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct ResolveOptions {
     /** The base time to use when resolving. Usually you want to input the current time (Date.now()) here. */
     pub time: Time,
@@ -127,7 +128,7 @@ fn get_state_at_time_for_layer(
                                 if let Some(ref mut state) = &mut best_state {
                                     if let Some(parent_id) = &keyframe.instance.resolved.parentId {
                                         if parent_id.eq(&state.instance.id) {
-                                            if keyframe.keyframeEndTime.unwrap_or(u64::MAX)
+                                            if keyframe.keyframeEndTime.unwrap_or(Time::MAX)
                                                 > request_time
                                             {
                                                 // Apply the keyframe on the state:
