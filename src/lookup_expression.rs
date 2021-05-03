@@ -4,8 +4,8 @@ use crate::instance::TimelineObjectInstance;
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::util::{
-    clean_instances, getId, invert_instances, join_caps, join_references2,
-    join_references3, join_references4, operate_on_arrays, Time,
+    clean_instances, getId, invert_instances, join_caps, join_references2, join_references3,
+    join_references4, operate_on_arrays, Time,
 };
 use regex::Regex;
 use std::collections::HashSet;

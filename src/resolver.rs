@@ -1,13 +1,9 @@
 use crate::events::{convert_events_to_instances, EventForInstance};
-use crate::expression::{
-    interpret_expression, Expression, ExpressionError, ExpressionOperator,
-};
+use crate::expression::{interpret_expression, Expression, ExpressionError, ExpressionOperator};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
-use crate::util::{
-    apply_parent_instances, getId, join_references, Time,
-};
+use crate::util::{apply_parent_instances, getId, join_references, Time};
 use std::cmp::min;
 use std::collections::HashSet;
 

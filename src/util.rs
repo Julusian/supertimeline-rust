@@ -241,7 +241,7 @@ pub fn operate_on_arrays(
     operate: fn(
         a: Option<&TimeWithReference>,
         b: Option<&TimeWithReference>,
-    ) -> Option<&TimeWithReference>,
+    ) -> Option<TimeWithReference>,
 ) -> LookupExpressionResultType {
     if let Some(lookup0) = get_as_array_to_operate(lookup0) {
         if let Some(lookup1) = get_as_array_to_operate(lookup1) {
@@ -417,13 +417,95 @@ pub fn apply_parent_instances(
     parent_instances: &Option<Vec<TimelineObjectInstance>>,
     value: &LookupExpressionResultType,
 ) -> LookupExpressionResultType {
-    // TODO
-    // const operate = (a: ValueWithReference | null, b: ValueWithReference | null): ValueWithReference | null => {
-    //     if (a === null || b === null) return null
-    //     return {
-    //         value: a.value + b.value,
-    //         references: joinReferences(a.references, b.references)
-    //     }
-    // }
-    // return operateOnArrays(parentInstances, value, operate)
+    let operate = |a: Option<&TimeWithReference>, b: Option<&TimeWithReference>| {
+        if let Some(a) = a {
+            if let Some(b) = b {
+                Some(TimeWithReference {
+                    value: a.value + b.value,
+                    references: join_references(&a.references, Some(&b.references), None),
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    operate_on_arrays(parentInstances, value, operate)
+}
+
+pub fn cap_instances(
+    instances: &Vec<TimelineObjectInstance>,
+    parent_instances: &LookupExpressionResultType,
+) -> Vec<TimelineObjectInstance> {
+    match parent_instances {
+        LookupExpressionResultType::Null => instances.clone(),
+        LookupExpressionResultType::TimeRef(_) => instances.clone(),
+        LookupExpressionResultType::Instances(parent_instances) => {
+            let mut return_instances = Vec::new();
+
+            for instance in instances {
+                let mut parent = None;
+
+                let instance_end = instance.end.unwrap_or(Time::MAX);
+
+                for p in parent_instances {
+                    let p_end = p.end.unwrap_or(Time::MAX);
+                    // TODO - could this not be achieved by instance.start <= p.end && instance.end >= p.start ?
+                    if (instance.start >= p.start && instance.start < p_end)
+                        || (instance.start < p.start && instance_end > p_end)
+                    {
+                        if let Some(old_parent) = parent {
+                            if p_end > old_parent.end.unwrap_or(Time::MAX) {
+                                parent = some(p);
+                            }
+                        } else {
+                            parent = Some(p);
+                        }
+                    }
+                }
+
+                if parent.is_none() {
+                    for p in parent_instances {
+                        if instance_end > p.start && instance_end <= p.end.unwrap_or(Time::MAX) {
+                            parent = Some(p);
+                        }
+                    }
+                }
+
+                if let Some(parent) = parent {
+                    let mut instance2 = instance.clone();
+
+                    if let Some(p_end) = parent.end {
+                        if instance.end.unwrap_or(Time::MAX) > p_end {
+                            set_instance_end_time(&mut instance2, p_end)
+                        }
+                    }
+
+                    if instance.start < parent.start {
+                        setInstanceStartTime(&mut instance2, parent.start)
+                    }
+
+                    return_instances.push(instance2);
+                }
+            }
+
+            return_instances
+        }
+    }
+}
+
+pub fn set_instance_end_time(instance: &mut TimelineObjectInstance, end: Time) {
+    if instance.originalEnd.is_none() {
+        instance.originalEnd = instance.end;
+    }
+
+    instance.end = Some(end);
+}
+pub fn set_instance_start_time(instance: &mut TimelineObjectInstance, start: Time) {
+    if instance.originalStart.is_none() {
+        instance.originalStart = Some(instance.start);
+    }
+
+    instance.start = start;
 }
