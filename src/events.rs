@@ -1,5 +1,5 @@
 use crate::instance::TimelineObjectInstance;
-use crate::util::{add_caps_to_resuming, clone_hashset_with_value, getId, join_hashset, Time};
+use crate::util::{add_caps_to_resuming, getId, join_hashset, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 

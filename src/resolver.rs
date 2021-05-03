@@ -4,8 +4,7 @@ use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::state;
 use crate::util::{
-    apply_parent_instances, apply_repeating_instances, cap_instance, clone_hashset_with_value,
-    getId, join_hashset, Time,
+    apply_parent_instances, apply_repeating_instances, cap_instance, getId, join_hashset, Time,
 };
 use std::cmp::min;
 use std::collections::HashSet;

@@ -1,6 +1,6 @@
 use crate::events::sort_events;
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
-use crate::instance::TimelineObjectInstance;
+use crate::instance::{Cap, TimelineObjectInstance};
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::util::{
@@ -63,11 +63,18 @@ pub fn lookup_expression(
         Expression::Invert(innerExpr) => {
             let inner_res = lookup_expression(resolved_timeline, obj, innerExpr, default_ref_type);
 
+            let inner_res2 = match inner_res.result {
+                LookupExpressionResultType::Null => LookupExpressionResultType::Null,
+                LookupExpressionResultType::TimeRef(time_ref) => {
+                    LookupExpressionResultType::TimeRef(time_ref)
+                } // Can't invert a time
+                LookupExpressionResultType::Instances(instances) => {
+                    LookupExpressionResultType::Instances(invert_instances(&instances))
+                }
+            };
+
             LookupExpressionResult {
-                instances: inner_res.instances, // We can't invert a value
-                instances2: inner_res
-                    .instances2
-                    .and_then(|instances| Some(invert_instances(&instances))),
+                result: inner_res2,
                 all_references: inner_res.all_references,
             }
         }
@@ -147,22 +154,22 @@ fn lookup_expression_str(
     if let Some(expression_references) = match_expression_references(resolved_timeline, expr_str) {
         let mut referencedObjs: Vec<&state::ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
-            if ref_obj_id != &obj.id {
+            if ref_obj_id != &obj.object.id {
                 if let Some(ref_obj) = resolved_timeline.objects.get(ref_obj_id) {
                     referencedObjs.push(ref_obj);
                 }
             } else {
-                if obj.resolving {
-                    obj.isSelfReferencing = true
+                if obj.resolved.resolving {
+                    obj.resolved.isSelfReferencing = Some(true);
                 }
             }
         }
 
-        if obj.isSelfReferencing {
+        if obj.resolved.isSelfReferencing {
             // Exclude any self-referencing objects:
             referencedObjs = referencedObjs
                 .into_iter()
-                .filter(|&ref_obj| !ref_obj.isSelfReferencing)
+                .filter(|&ref_obj| !ref_obj.resolved.isSelfReferencing)
                 .collect::<Vec<_>>();
         }
 
@@ -185,16 +192,16 @@ fn lookup_expression_str(
                 for ref_obj in referencedObjs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved {
-                        if obj.isSelfReferencing && ref_obj.isSelfReferencing {
+                        if obj.resolved.isSelfReferencing && ref_obj.resolved.isSelfReferencing {
                             // If the querying object is self-referencing, exclude any other self-referencing objects,
                             // ignore the object
                         } else {
-                            if let Some(first_instance) = ref_obj.resolved_instances.first() {
+                            if let Some(first_instance) = ref_obj.resolved.instances.first() {
                                 if let Some(end) = first_instance.end {
                                     let duration = end - first_instance.start;
                                     let mut references = HashSet::new();
                                     references.extend(first_instance.references.iter().cloned());
-                                    references.insert(ref_obj.id.clone());
+                                    references.insert(ref_obj.object.id.clone());
 
                                     instance_durations.push(TimeWithReference {
                                         value: duration,
@@ -230,11 +237,11 @@ fn lookup_expression_str(
                 for ref_obj in referencedObjs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
                     if ref_obj.resolved {
-                        if obj.isSelfReferencing && ref_obj.isSelfReferencing {
+                        if obj.resolved.isSelfReferencing && ref_obj.resolved.isSelfReferencing {
                             // If the querying object is self-referencing, exclude any other self-referencing objects,
                             // ignore the object
                         } else {
-                            return_instances.extend(ref_obj.resolved_instances.iter().cloned());
+                            return_instances.extend(ref_obj.resolved.instances.iter().cloned());
                         }
                     }
                 }
@@ -321,25 +328,26 @@ fn lookup_expression_obj(
             let mut right_instance = None;
 
             let mut instances = Vec::new();
-            let push_instance = |time, value, references, caps| {
-                if value {
-                    instances.push(TimelineObjectInstance {
-                        id: getId(),
-                        start: time,
-                        end: None,
-                        references,
-                        caps,
+            let push_instance =
+                |time: Time, value: bool, references: HashSet<String>, caps: Vec<Cap>| {
+                    if value {
+                        instances.push(TimelineObjectInstance {
+                            id: getId(),
+                            start: time,
+                            end: None,
+                            references,
+                            caps,
 
-                        isFirst: false,
-                        originalStart: None,
-                        originalEnd: None,
-                        fromInstanceId: None,
-                    });
-                } else if let Some(last_instance) = instances.last_mut() {
-                    last_instance.end = time;
-                    // don't update reference on end
-                }
-            };
+                            isFirst: false,
+                            originalStart: None,
+                            originalEnd: None,
+                            fromInstanceId: None,
+                        });
+                    } else if let Some(last_instance) = instances.last_mut() {
+                        last_instance.end = Some(time);
+                        // don't update reference on end
+                    }
+                };
             push_instance(0, result_value, result_references, Vec::new());
 
             for (i, event) in events.iter().enumerate() {
@@ -420,7 +428,7 @@ fn lookup_expression_obj(
 
             let result = operate_on_arrays(&l.result, &r.result, operator);
             LookupExpressionResult {
-                result: LookupExpressionResultType::Instances(result),
+                result,
                 all_references,
             }
         }
@@ -438,30 +446,33 @@ struct SideEvent<'a> {
 fn get_side_events(res: &LookupExpressionResult, is_left: bool) -> Vec<SideEvent> {
     let mut events = Vec::new();
 
-    if let Some(instances) = &res.instances2 {
-        for instance in instances {
-            if let Some(end) = instance.end {
-                if end == instance.start {
-                    // event doesn't actually exist...
-                    break;
+    match &res.result {
+        LookupExpressionResultType::Instances(instances) => {
+            for instance in instances {
+                if let Some(end) = instance.end {
+                    if end == instance.start {
+                        // event doesn't actually exist...
+                        break;
+                    }
+
+                    events.push(SideEvent {
+                        is_left,
+                        time: end,
+                        instance,
+                        is_start: false,
+                    });
                 }
 
                 events.push(SideEvent {
                     is_left,
-                    time: end,
+                    time: instance.start,
                     instance,
-                    is_start: false,
+                    is_start: true,
                 });
             }
-
-            events.push(SideEvent {
-                is_left,
-                time: instance.start,
-                instance,
-                is_start: true,
-            });
         }
-    }
+        _ => {}
+    };
 
     events
 }
