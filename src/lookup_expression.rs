@@ -31,7 +31,7 @@ pub struct LookupExpressionResult {
     pub all_references: HashSet<String>,
 }
 impl LookupExpressionResult {
-    pub fn Null() -> LookupExpressionResult {
+    pub fn null() -> LookupExpressionResult {
         LookupExpressionResult {
             result: LookupExpressionResultType::Null,
             all_references: HashSet::new(),
@@ -46,7 +46,7 @@ pub fn lookup_expression(
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {
     match expr {
-        Expression::Null => LookupExpressionResult::Null(),
+        Expression::Null => LookupExpressionResult::null(),
         Expression::Number(time) => LookupExpressionResult {
             result: LookupExpressionResultType::TimeRef(TimeWithReference {
                 value: 0i64.max(*time).unsigned_abs(), // Clamp to not go below 0
@@ -177,7 +177,7 @@ fn lookup_expression_str(
         }
 
         if referenced_objs.len() > 0 {
-            let refType = {
+            let ref_type = {
                 // TODO - these should be looser regex
                 if expression_references.remaining_expression == "start" {
                     ObjectRefType::Start
@@ -190,7 +190,7 @@ fn lookup_expression_str(
                 }
             };
 
-            if refType == ObjectRefType::Duration {
+            if ref_type == ObjectRefType::Duration {
                 let mut instance_durations = Vec::new();
                 for ref_obj in referenced_objs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
@@ -231,16 +231,16 @@ fn lookup_expression_str(
                     };
                 }
 
-                return LookupExpressionResult {
+                LookupExpressionResult {
                     result: result
                         .and_then(|time_ref| Some(LookupExpressionResultType::TimeRef(time_ref)))
                         .unwrap_or(LookupExpressionResultType::Null),
                     all_references: expression_references.all_references,
-                };
+                }
             } else {
                 let mut return_instances: Vec<TimelineObjectInstance> = Vec::new();
 
-                let invertAndIgnoreFirstIfZero = refType == ObjectRefType::End;
+                let invert_and_ignore_first_if_zero = ref_type == ObjectRefType::End;
 
                 for ref_obj in referenced_objs {
                     resolve_timeline_obj(resolved_timeline, ref_obj);
@@ -256,7 +256,7 @@ fn lookup_expression_str(
                 }
 
                 if return_instances.len() > 0 {
-                    if invertAndIgnoreFirstIfZero {
+                    if invert_and_ignore_first_if_zero {
                         return_instances = invert_instances(resolved_timeline, &return_instances);
 
                         if let Some(first) = return_instances.first() {
@@ -269,22 +269,22 @@ fn lookup_expression_str(
                             clean_instances(resolved_timeline, &return_instances, true, true);
                     }
 
-                    return LookupExpressionResult {
+                    LookupExpressionResult {
                         result: LookupExpressionResultType::Instances(return_instances),
                         all_references: expression_references.all_references,
-                    };
+                    }
                 } else {
-                    return LookupExpressionResult {
+                    LookupExpressionResult {
                         result: LookupExpressionResultType::Null,
                         all_references: expression_references.all_references,
-                    };
+                    }
                 }
             }
         } else {
-            LookupExpressionResult::Null()
+            LookupExpressionResult::null()
         }
     } else {
-        LookupExpressionResult::Null()
+        LookupExpressionResult::null()
     }
 }
 
@@ -295,7 +295,7 @@ fn lookup_expression_obj(
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {
     if expr.l == Expression::Null || expr.r == Expression::Null {
-        LookupExpressionResult::Null()
+        LookupExpressionResult::null()
     } else {
         let l = lookup_expression(resolved_timeline, obj, &expr.l, default_ref_type);
         let r = lookup_expression(resolved_timeline, obj, &expr.r, default_ref_type);
@@ -511,29 +511,3 @@ fn get_side_events(res: &LookupExpressionResult, is_left: bool) -> Vec<SideEvent
 
     events
 }
-
-// pub fn execute_operator(o: ExpressionOperator, a: Time, b: Time): Time {
-//     match o {
-//         ExpressionOperator::Add => a + b,
-//         ExpressionOperator::Subtract => a - b
-//         ExpressionOperator::Multiply => |a, b| {
-//             Some(TimeWithReference {
-//                 value: a.value * b.value,
-//                 references: join_hashset(&a.references, &b.references),
-//             })
-//         },
-//         ExpressionOperator::Divide => |a, b| {
-//             Some(TimeWithReference {
-//                 value: a.value / b.value, // TODO - can this panic?
-//                 references: join_hashset(&a.references, &b.references),
-//             })
-//         },
-//         ExpressionOperator::Remainder => |a, b| {
-//             Some(TimeWithReference {
-//                 value: a.value % b.value, // TODO - can this panic?
-//                 references: join_hashset(&a.references, &b.references),
-//             })
-//         },
-//         _ => |a, b| None,
-//     };
-// }

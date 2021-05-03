@@ -3,7 +3,7 @@ use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::expression::{
     interpret_expression, is_constant, simplify_expression, Expression, ExpressionError,
 };
-use crate::instance::TimelineObjectInstance;
+use crate::instance::{Cap, TimelineObjectInstance};
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::references::ReferencesBuilder;
 use crate::state;
@@ -362,37 +362,29 @@ pub fn resolve_timeline_obj(
                             let capped_instance =
                                 cap_instance(instance, &vec![referred_parent_instance]);
 
-                            // TODO
-                            // if (cappedInstance) {
-                            //
-                            //     if (!cappedInstance.caps) cappedInstance.caps = []
-                            //     cappedInstance.caps.push({
-                            //         id: referredParentInstance.id,
-                            //         start: referredParentInstance.start,
-                            //         end: referredParentInstance.end
-                            //     })
-                            //     cappedInstances.push(cappedInstance)
-                            // }
+                            if let Some(mut capped_instance) = capped_instance {
+                                capped_instance.caps.push(Cap {
+                                    id: referred_parent_instance.id.clone(),
+                                    start: referred_parent_instance.start,
+                                    end: referred_parent_instance.end,
+                                });
+                                capped_instances.push(capped_instance)
+                            }
                         } else {
-                            // TODO
                             // If the child doesn't refer to its parent, it should be capped within all of its parent instances
-                            // for (let i = 0; i < parentInstances.length; i++) {
-                            //     const parentInstance = parentInstances[i]
-                            //
-                            //     const cappedInstance = capInstances([instance], [parentInstance])[0]
-                            //
-                            //     if (cappedInstance) {
-                            //         if (parentInstance) {
-                            //             if (!cappedInstance.caps) cappedInstance.caps = []
-                            //             cappedInstance.caps.push({
-                            //                 id: parentInstance.id,
-                            //                 start: parentInstance.start,
-                            //                 end: parentInstance.end
-                            //             })
-                            //         }
-                            //         cappedInstances.push(cappedInstance)
-                            //     }
-                            // }
+                            for parent_instance in parent_instances {
+                                let capped_instance =
+                                    cap_instance(instance, &vec![&parent_instance]);
+
+                                if let Some(mut capped_instance) = capped_instance {
+                                    capped_instance.caps.push(Cap {
+                                        id: parent_instance.id.clone(),
+                                        start: parent_instance.start,
+                                        end: parent_instance.end,
+                                    });
+                                    capped_instances.push(capped_instance)
+                                }
+                            }
                         }
                     }
                 }

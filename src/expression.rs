@@ -134,8 +134,20 @@ pub fn interpret_expression(expression: &Expression) -> Result<Expression, Expre
         Expression::Null => Ok(Expression::Null),
         Expression::Number(val) => Ok(Expression::Number(*val)),
         Expression::String(val) => interpret_expression_string(&val),
-        Expression::Expression(_) => Ok(expression.clone()), // TODO - recurse?
-        Expression::Invert(_) => Ok(expression.clone()),     // TODO - recurse?
+        Expression::Expression(expr_obj) => {
+            let l = interpret_expression(&expr_obj.l)?;
+            let r = interpret_expression(&expr_obj.r)?;
+
+            Ok(ExpressionObj {
+                l,
+                o: expr_obj.o,
+                r,
+            }
+            .wrap())
+        }
+        Expression::Invert(inner_expr) => {
+            interpret_expression(inner_expr).and_then(|res| Ok(Expression::Invert(Box::new(res))))
+        }
     }
 }
 
