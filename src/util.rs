@@ -198,10 +198,12 @@ pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Ca
 //     res
 // }
 
-fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<Vec<&TimelineObjectInstance>> {
+fn get_converted_array_to_operate(
+    a: &LookupExpressionResultType,
+) -> Option<Vec<TimelineObjectInstance>> {
     match a {
         LookupExpressionResultType::Null => None,
-        LookupExpressionResultType::TimeRef(time_ref) => Some(vec![&TimelineObjectInstance {
+        LookupExpressionResultType::TimeRef(time_ref) => Some(vec![TimelineObjectInstance {
             id: "".to_string(),
             start: time_ref.value,
             end: Some(time_ref.value),
@@ -213,7 +215,16 @@ fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<Vec<&Timeli
             caps: vec![],
             fromInstanceId: None,
         }]),
-        LookupExpressionResultType::Instances(instances) => Some(instances.iter().collect()),
+        LookupExpressionResultType::Instances(instances) => None,
+    }
+}
+fn get_existing_array_to_operate(
+    a: &LookupExpressionResultType,
+) -> Option<&Vec<TimelineObjectInstance>> {
+    match a {
+        LookupExpressionResultType::Null => None,
+        LookupExpressionResultType::TimeRef(time_ref) => None,
+        LookupExpressionResultType::Instances(instances) => Some(instances),
     }
 }
 
@@ -226,8 +237,11 @@ pub fn operate_on_arrays<T>(
 where
     T: Fn(Option<&TimeWithReference>, Option<&TimeWithReference>) -> Option<TimeWithReference>,
 {
-    if let Some(lookup0) = get_as_array_to_operate(lookup0) {
-        if let Some(lookup1) = get_as_array_to_operate(lookup1) {
+    let lookup0_converted = get_converted_array_to_operate(lookup0);
+    if let Some(lookup0) = get_existing_array_to_operate(lookup0).or(lookup0_converted.as_ref()) {
+        let lookup1_converted = get_converted_array_to_operate(lookup1);
+        if let Some(lookup1) = get_existing_array_to_operate(lookup1).or(lookup1_converted.as_ref())
+        {
             // TODO - both refs shortcut
             // if (
             //     isReference(array0) &&
