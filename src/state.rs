@@ -139,8 +139,9 @@ fn get_state_at_time_for_layer(
 }
 
 fn apply_keyframe_content(
-    instance: &mut ResolvedTimelineObjectInstance,
-    keyframe: &ResolvedTimelineObjectInstanceKeyframe,
+    _instance: &mut ResolvedTimelineObjectInstance,
+    _keyframe: &ResolvedTimelineObjectInstanceKeyframe,
 ) {
     // TODO
+    // Something maybe here, ideally this shouldnt deal with content, and should simply report the presence of the keyframe for the consumer to do the content mangling
 }

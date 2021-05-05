@@ -1,10 +1,10 @@
-use crate::api::{ResolvedTimeline, ResolverContext};
+use crate::api::ResolverContext;
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::TimelineObjectInstance;
 use crate::caps::{CapsBuilder, Cap};
 use crate::references::ReferencesBuilder;
-use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
+use crate::resolver::{ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::state::ResolvedTimelineObject;
 use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
@@ -38,7 +38,7 @@ impl LookupExpressionResult {
 }
 
 pub fn lookup_expression(
-    resolved_timeline: &mut ResolvedTimeline,
+    ctx: &dyn ResolverContext,
     obj: &mut state::ResolvedTimelineObject,
     expr: &Expression,
     default_ref_type: &ObjectRefType,
@@ -53,13 +53,13 @@ pub fn lookup_expression(
             all_references: HashSet::new(),
         },
         Expression::String(str) => {
-            lookup_expression_str(resolved_timeline, obj, str, default_ref_type)
+            lookup_expression_str(ctx, obj, str, default_ref_type)
         }
         Expression::Expression(exprObj) => {
-            lookup_expression_obj(resolved_timeline, obj, exprObj, default_ref_type)
+            lookup_expression_obj(ctx, obj, exprObj, default_ref_type)
         }
         Expression::Invert(innerExpr) => {
-            let inner_res = lookup_expression(resolved_timeline, obj, innerExpr, default_ref_type);
+            let inner_res = lookup_expression(ctx, obj, innerExpr, default_ref_type);
 
             let inner_res2 = match inner_res.result {
                 LookupExpressionResultType::Null => LookupExpressionResultType::Null,
@@ -68,7 +68,7 @@ pub fn lookup_expression(
                 } // Can't invert a time
                 LookupExpressionResultType::Instances(instances) => {
                     LookupExpressionResultType::Instances(invert_instances(
-                        resolved_timeline,
+                        ctx,
                         &instances,
                     ))
                 }
@@ -88,7 +88,7 @@ struct MatchExpressionReferences {
     pub all_references: HashSet<String>,
 }
 fn match_expression_references(
-    resolved_timeline: &ResolvedTimeline,
+    ctx: &dyn ResolverContext,
     expr_str: &str,
 ) -> Option<MatchExpressionReferences> {
     if let Some(id_match) = MATCH_ID_REGEX.captures(expr_str) {
@@ -104,9 +104,7 @@ fn match_expression_references(
 
         Some(MatchExpressionReferences {
             remaining_expression: class_match.get(2).unwrap().as_str().to_string(),
-            object_ids_to_reference: resolved_timeline
-                .classes
-                .get(class_name)
+            object_ids_to_reference: ctx.get_object_ids_for_class(class_name)
                 .cloned()
                 .unwrap_or_default(),
             all_references: set![format!(".{}", class_name)],
@@ -116,9 +114,7 @@ fn match_expression_references(
 
         Some(MatchExpressionReferences {
             remaining_expression: layer_match.get(2).unwrap().as_str().to_string(),
-            object_ids_to_reference: resolved_timeline
-                .layers
-                .get(layer_id)
+            object_ids_to_reference: ctx.get_object_ids_for_layer(layer_id)
                 .cloned()
                 .unwrap_or_default(),
             all_references: set![format!("${}", layer_id)],
@@ -129,7 +125,7 @@ fn match_expression_references(
 }
 
 fn lookup_expression_str(
-    resolved_timeline: &mut ResolvedTimeline,
+    ctx: &dyn ResolverContext,
     obj: &mut state::ResolvedTimelineObject,
     expr_str: &str,
     default_ref_type: &ObjectRefType,
@@ -152,7 +148,7 @@ fn lookup_expression_str(
     //     }
     // }
 
-    if let Some(expression_references) = match_expression_references(resolved_timeline, expr_str) {
+    if let Some(expression_references) = match_expression_references(ctx, expr_str) {
         let mut referenced_objs: Vec<&mut ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
             if ref_obj_id.eq(&obj.object_id) {
@@ -191,7 +187,7 @@ fn lookup_expression_str(
             if ref_type == ObjectRefType::Duration {
                 let mut instance_durations = Vec::new();
                 for ref_obj in referenced_objs {
-                    resolve_timeline_obj(resolved_timeline, ref_obj);
+                    ctx.resolve_object(ref_obj);
                     if ref_obj.resolved.resolved {
                         if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
                         {
@@ -241,7 +237,7 @@ fn lookup_expression_str(
                 let invert_and_ignore_first_if_zero = ref_type == ObjectRefType::End;
 
                 for ref_obj in referenced_objs {
-                    resolve_timeline_obj(resolved_timeline, ref_obj);
+                    ctx.resolve_object(ref_obj);
                     if ref_obj.resolved.resolved {
                         if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
                         {
@@ -255,7 +251,7 @@ fn lookup_expression_str(
 
                 if return_instances.len() > 0 {
                     if invert_and_ignore_first_if_zero {
-                        return_instances = invert_instances(resolved_timeline, &return_instances);
+                        return_instances = invert_instances(ctx, &return_instances);
 
                         if let Some(first) = return_instances.first() {
                             if first.start == 0 {
@@ -264,7 +260,7 @@ fn lookup_expression_str(
                         }
                     } else {
                         return_instances =
-                            clean_instances(resolved_timeline, &return_instances, true, true);
+                            clean_instances(ctx, &return_instances, true, true);
                     }
 
                     LookupExpressionResult {
@@ -287,7 +283,7 @@ fn lookup_expression_str(
 }
 
 fn lookup_expression_obj(
-    resolved_timeline: &mut ResolvedTimeline,
+    ctx: &dyn ResolverContext,
     obj: &mut state::ResolvedTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
@@ -295,8 +291,8 @@ fn lookup_expression_obj(
     if expr.l == Expression::Null || expr.r == Expression::Null {
         LookupExpressionResult::null()
     } else {
-        let l = lookup_expression(resolved_timeline, obj, &expr.l, default_ref_type);
-        let r = lookup_expression(resolved_timeline, obj, &expr.r, default_ref_type);
+        let l = lookup_expression(ctx, obj, &expr.l, default_ref_type);
+        let r = lookup_expression(ctx, obj, &expr.r, default_ref_type);
 
         let all_references = HashSet::from_iter(
             l.all_references
@@ -345,7 +341,7 @@ fn lookup_expression_obj(
                 |time: Time, value: bool, references: HashSet<String>, caps: Vec<Cap>| {
                     if value {
                         instances.push(TimelineObjectInstance {
-                            id: resolved_timeline.get_id(),
+                            id: ctx.generate_id(),
                             start: time,
                             end: None,
                             references,
@@ -442,7 +438,7 @@ fn lookup_expression_obj(
                 }
             };
 
-            let result = operate_on_arrays(resolved_timeline, &l.result, &r.result, &operator2);
+            let result = operate_on_arrays(ctx, &l.result, &r.result, &operator2);
 
             LookupExpressionResult {
                 result,

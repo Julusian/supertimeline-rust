@@ -17,7 +17,7 @@ pub fn invert_instances(
 ) -> Vec<TimelineObjectInstance> {
     if instances.len() == 0 {
         vec![TimelineObjectInstance {
-            id: ctx.get_id(),
+            id: ctx.generate_id(),
             isFirst: true,
             start: 0,
             end: None,
@@ -39,7 +39,7 @@ pub fn invert_instances(
         // Fill the time between the first and zero
         if first_instance.start != 0 {
             inverted_instances.push(TimelineObjectInstance {
-                id: ctx.get_id(),
+                id: ctx.generate_id(),
                 isFirst: true,
                 start: 0,
                 end: None,
@@ -64,7 +64,7 @@ pub fn invert_instances(
 
             if let Some(end) = instance.end {
                 inverted_instances.push(TimelineObjectInstance {
-                    id: ctx.get_id(),
+                    id: ctx.generate_id(),
                     isFirst: false,
                     start: end,
                     end: None,
@@ -309,7 +309,7 @@ where
                     };
 
                     result.push(TimelineObjectInstance {
-                        id: ctx.get_id(),
+                        id: ctx.generate_id(),
                         start: start.value,
                         end: end.as_ref().and_then(|e| Some(e.value)),
                         references: ReferencesBuilder::new()
@@ -399,7 +399,7 @@ pub fn apply_repeating_instances(
                         .add(&repeat_time.references)
                         .done();
                     repeated_instances.push(TimelineObjectInstance {
-                        id: ctx.get_id(),
+                        id: ctx.generate_id(),
                         start: capped_start_time,
                         end: capped_end_time,
                         references,

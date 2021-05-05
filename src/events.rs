@@ -134,7 +134,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         // Start a new instance:
                         last_instance.end = Some(event.time);
                         return_instances.push(TimelineObjectInstance {
-                            id: ctx.get_id(),
+                            id: ctx.generate_id(),
                             start: event.time,
                             end: None,
                             references: event.references.clone(),
@@ -163,7 +163,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                             // Restart that instance now:
                             last_instance.end = Some(event.time);
                             return_instances.push(TimelineObjectInstance {
-                                id: format!("{}_{}", event_id, ctx.get_id()),
+                                id: format!("{}_{}", event_id, ctx.generate_id()),
                                 start: event.time,
                                 end: None,
                                 references: latest_instance.1.references.clone(),
