@@ -12,8 +12,8 @@ pub enum ResolvedTimelineObjectEntry {
 #[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstanceKeyframe {
     pub instance: ResolvedTimelineObjectInstance,
-    //pub isKeyframe: bool,
-    pub keyframeEndTime: Option<Time>,
+    //pub is_keyframe: bool,
+    pub keyframe_end_time: Option<Time>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,9 +48,9 @@ pub struct TimelineObjectResolveInfo {
     /** Increases the more levels inside of a group the objects is */
     pub depth: usize,
     /** Id of the parent object */
-    pub parentId: Option<String>,
+    pub parent_id: Option<String>,
     /** True if object is a keyframe */
-    pub isKeyframe: bool,
+    pub is_keyframe: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -73,7 +73,7 @@ pub struct TimelineObjectResolved {
     /** Instances of the object on the timeline */
     pub instances: Vec<TimelineObjectInstance>,
     /** Ids of all other objects that directly affects this object (ie through direct reference, classes, etc) */
-    pub directReferences: HashSet<String>,
+    pub direct_references: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,7 +81,7 @@ pub struct TimelineObjectInstance {
     /** id of the instance (unique)  */
     pub id: String,
     /** if true, the instance starts from the beginning of time */
-    pub isFirst: bool,
+    pub is_first: bool,
     /** The start time of the instance */
     pub start: Time,
     /** The end time of the instance (null = infinite) */
@@ -90,11 +90,11 @@ pub struct TimelineObjectInstance {
     /** The original start time of the instance (if an instance is split or capped, the original start time is retained in here).
      * If undefined, fallback to .start
      */
-    pub originalStart: Option<Time>,
+    pub original_start: Option<Time>,
     /** The original end time of the instance (if an instance is split or capped, the original end time is retained in here)
      * If undefined, fallback to .end
      */
-    pub originalEnd: Option<Time>,
+    pub original_end: Option<Time>,
 
     /** array of the id of the referenced objects */
     pub references: HashSet<String>,
@@ -102,7 +102,7 @@ pub struct TimelineObjectInstance {
     /** If set, tells the cap of the parent. The instance will always be capped inside this. */
     pub caps: Vec<Cap>,
     /** If the instance was generated from another instance, reference to the original */
-    pub fromInstanceId: Option<String>,
+    pub from_instance_id: Option<String>,
 }
 
 #[derive(Clone)]

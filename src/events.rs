@@ -139,11 +139,11 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                             end: None,
                             references: event.references.clone(),
 
-                            isFirst: false,
+                            is_first: false,
                             caps: Vec::new(),
-                            originalStart: None,
-                            originalEnd: None,
-                            fromInstanceId: None,
+                            original_start: None,
+                            original_end: None,
+                            from_instance_id: None,
                         });
                         active_instance_id = Some(event_id);
                     } else if !allow_merge
@@ -168,11 +168,11 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                                 end: None,
                                 references: latest_instance.1.references.clone(),
 
-                                isFirst: false,
+                                is_first: false,
                                 caps: Vec::new(),
-                                originalStart: None,
-                                originalEnd: None,
-                                fromInstanceId: None,
+                                original_start: None,
+                                original_end: None,
+                                from_instance_id: None,
                             });
                             active_instance_id = Some(latest_instance.0.clone());
                         }
@@ -198,10 +198,10 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                             references: event.references.clone(),
                             caps: event.caps.clone(),
 
-                            isFirst: false,
-                            originalStart: None,
-                            originalEnd: None,
-                            fromInstanceId: None,
+                            is_first: false,
+                            original_start: None,
+                            original_end: None,
+                            from_instance_id: None,
                         });
                         active_instance_id = Some(event_id);
                     } else {
@@ -222,10 +222,10 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         references: event.references.clone(),
                         caps: event.caps.clone(),
 
-                        isFirst: false,
-                        originalStart: None,
-                        originalEnd: None,
-                        fromInstanceId: None,
+                        is_first: false,
+                        original_start: None,
+                        original_end: None,
+                        from_instance_id: None,
                     });
                     active_instance_id = Some(event_id);
                 }

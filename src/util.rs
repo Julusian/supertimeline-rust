@@ -18,16 +18,16 @@ pub fn invert_instances(
     if instances.len() == 0 {
         vec![TimelineObjectInstance {
             id: ctx.generate_id(),
-            isFirst: true,
+            is_first: true,
             start: 0,
             end: None,
             references: HashSet::new(),
 
-            originalStart: None,
-            originalEnd: None,
+            original_start: None,
+            original_end: None,
 
             caps: Vec::new(),
-            fromInstanceId: None,
+            from_instance_id: None,
         }]
     } else {
         let cleaned_instances = clean_instances(ctx, instances, true, true);
@@ -40,7 +40,7 @@ pub fn invert_instances(
         if first_instance.start != 0 {
             inverted_instances.push(TimelineObjectInstance {
                 id: ctx.generate_id(),
-                isFirst: true,
+                is_first: true,
                 start: 0,
                 end: None,
                 references: ReferencesBuilder::new()
@@ -50,9 +50,9 @@ pub fn invert_instances(
                 caps: Vec::new(),
 
                 // TODO - what are these for if they arent set here?
-                originalStart: None,
-                originalEnd: None,
-                fromInstanceId: None,
+                original_start: None,
+                original_end: None,
+                from_instance_id: None,
             });
         }
 
@@ -65,7 +65,7 @@ pub fn invert_instances(
             if let Some(end) = instance.end {
                 inverted_instances.push(TimelineObjectInstance {
                     id: ctx.generate_id(),
-                    isFirst: false,
+                    is_first: false,
                     start: end,
                     end: None,
                     references: ReferencesBuilder::new()
@@ -75,9 +75,9 @@ pub fn invert_instances(
                     caps: instance.caps,
 
                     // TODO - what are these for if they arent set here?
-                    originalStart: None,
-                    originalEnd: None,
-                    fromInstanceId: None,
+                    original_start: None,
+                    original_end: None,
+                    from_instance_id: None,
                 });
             }
         }
@@ -97,8 +97,8 @@ pub fn clean_instances(
         0 => Vec::new(),
         1 => {
             let mut instance = instances[0].clone();
-            instance.originalStart = Some(instance.start);
-            instance.originalEnd = instance.end;
+            instance.original_start = Some(instance.start);
+            instance.original_end = instance.end;
 
             vec![instance]
         }
@@ -209,11 +209,11 @@ fn get_converted_array_to_operate(
             end: Some(time_ref.value),
             references: time_ref.references.clone(),
 
-            isFirst: false,
-            originalStart: None,
-            originalEnd: None,
+            is_first: false,
+            original_start: None,
+            original_end: None,
             caps: vec![],
-            fromInstanceId: None,
+            from_instance_id: None,
         }]),
         LookupExpressionResultType::Instances(instances) => None,
     }
@@ -255,12 +255,12 @@ where
             // let min_length = min(lookup0.len(), lookup1.len());
             // Iterate through both until we run out of one
             for (a, b) in lookup0.iter().zip(lookup1.iter()) {
-                let start = if a.isFirst {
+                let start = if a.is_first {
                     Some(TimeWithReference {
                         value: a.start,
                         references: a.references.clone(),
                     })
-                } else if b.isFirst {
+                } else if b.is_first {
                     Some(TimeWithReference {
                         value: b.start,
                         references: b.references.clone(),
@@ -285,14 +285,14 @@ where
                 };
 
                 if let Some(start) = start {
-                    let end = if a.isFirst {
+                    let end = if a.is_first {
                         a.end.and_then(|end| {
                             Some(TimeWithReference {
                                 value: end,
                                 references: a.references.clone(),
                             })
                         })
-                    } else if b.isFirst {
+                    } else if b.is_first {
                         b.end.and_then(|end| {
                             Some(TimeWithReference {
                                 value: end,
@@ -335,10 +335,10 @@ where
                             .add(b.caps.iter().cloned())
                             .done(),
 
-                        isFirst: false,
-                        originalStart: None,
-                        originalEnd: None,
-                        fromInstanceId: None,
+                        is_first: false,
+                        original_start: None,
+                        original_end: None,
+                        from_instance_id: None,
                     })
                 }
             }
@@ -385,9 +385,9 @@ pub fn apply_repeating_instances(
                 .iter()
                 .find(|cap| instance.references.contains(&cap.id));
 
-            let limit = options.limitCount.unwrap_or(DEFAULT_LIMIT_COUNT);
+            let limit = options.limit_count.unwrap_or(DEFAULT_LIMIT_COUNT);
             for _i in 0..limit {
-                if let Some(limit_time) = options.limitTime {
+                if let Some(limit_time) = options.limit_time {
                     if start_time >= limit_time {
                         break;
                     }
@@ -418,11 +418,11 @@ pub fn apply_repeating_instances(
                         end: capped_end_time,
                         references,
 
-                        isFirst: false,
-                        originalStart: None,
-                        originalEnd: None,
+                        is_first: false,
+                        original_start: None,
+                        original_end: None,
                         caps: Vec::new(),
-                        fromInstanceId: None,
+                        from_instance_id: None,
                     })
                 }
 
@@ -548,15 +548,15 @@ pub fn cap_instance(
 }
 
 pub fn set_instance_end_time(instance: &mut TimelineObjectInstance, end: Time) {
-    if instance.originalEnd.is_none() {
-        instance.originalEnd = instance.end;
+    if instance.original_end.is_none() {
+        instance.original_end = instance.end;
     }
 
     instance.end = Some(end);
 }
 pub fn set_instance_start_time(instance: &mut TimelineObjectInstance, start: Time) {
-    if instance.originalStart.is_none() {
-        instance.originalStart = Some(instance.start);
+    if instance.original_start.is_none() {
+        instance.original_start = Some(instance.start);
     }
 
     instance.start = start;

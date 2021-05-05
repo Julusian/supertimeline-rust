@@ -52,11 +52,11 @@ pub fn lookup_expression(
             all_references: HashSet::new(),
         },
         Expression::String(str) => lookup_expression_str(ctx, obj, str, default_ref_type),
-        Expression::Expression(exprObj) => {
-            lookup_expression_obj(ctx, obj, exprObj, default_ref_type)
+        Expression::Expression(expr_obj) => {
+            lookup_expression_obj(ctx, obj, expr_obj, default_ref_type)
         }
-        Expression::Invert(innerExpr) => {
-            let inner_res = lookup_expression(ctx, obj, innerExpr, default_ref_type);
+        Expression::Invert(inner_expr) => {
+            let inner_res = lookup_expression(ctx, obj, inner_expr, default_ref_type);
 
             let inner_res2 = match inner_res.result {
                 LookupExpressionResultType::Null => LookupExpressionResultType::Null,
@@ -368,10 +368,10 @@ fn lookup_expression_obj(
                             references,
                             caps,
 
-                            isFirst: false,
-                            originalStart: None,
-                            originalEnd: None,
-                            fromInstanceId: None,
+                            is_first: false,
+                            original_start: None,
+                            original_end: None,
+                            from_instance_id: None,
                         });
                     } else if let Some(last_instance) = instances.last_mut() {
                         last_instance.end = Some(time);

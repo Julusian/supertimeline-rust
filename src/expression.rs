@@ -54,11 +54,11 @@ impl Display for Expression {
     }
 }
 
-pub struct ParsedExpression {
-    pub l: Box<ParsedExpression>,
-    pub o: ExpressionOperator,
-    pub r: Box<ParsedExpression>,
-}
+// pub struct ParsedExpression {
+//     pub l: Box<ParsedExpression>,
+//     pub o: ExpressionOperator,
+//     pub r: Box<ParsedExpression>,
+// }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionObj {
@@ -99,8 +99,8 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
             }
         }
         Expression::Null => Ok(Expression::Null),
-        Expression::Invert(innerExpr) => {
-            simplify_expression(innerExpr).and_then(|e| Ok(Expression::Invert(Box::new(e))))
+        Expression::Invert(inner_expr) => {
+            simplify_expression(inner_expr).and_then(|e| Ok(Expression::Invert(Box::new(e))))
         }
 
         Expression::Number(val) => Ok(Expression::Number(*val)),

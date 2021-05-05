@@ -99,8 +99,8 @@ fn add_object_to_timeline(
         resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
         info: TimelineObjectResolveInfo {
             depth: depth,
-            parentId: parent_id.cloned(),
-            isKeyframe: false,
+            parent_id: parent_id.cloned(),
+            is_keyframe: false,
         },
     };
 
@@ -120,8 +120,8 @@ fn add_object_to_timeline(
                 resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
                 info: TimelineObjectResolveInfo {
                     depth: depth + 1,
-                    parentId: Some(resolved_obj.object_id.clone()),
-                    isKeyframe: true,
+                    parent_id: Some(resolved_obj.object_id.clone()),
+                    is_keyframe: true,
                 },
             };
             add_object_to_resolved_timeline(timeline, resolved_obj, None)
@@ -282,7 +282,7 @@ impl ResolverContext for ResolvedTimeline {
             let mut parent_instances = None;
             let mut has_parent = false;
             let mut refer_to_parent = false;
-            if let Some(parent_id) = &obj.info.parentId {
+            if let Some(parent_id) = &obj.info.parent_id {
                 has_parent = true;
 
                 let expr = Expression::String(format!(r"#{}", parent_id));
@@ -324,11 +324,11 @@ impl ResolverContext for ResolvedTimeline {
                             end: None,
                             references: time_ref.references,
 
-                            isFirst: false,
-                            originalStart: None,
-                            originalEnd: None,
+                            is_first: false,
+                            original_start: None,
+                            original_end: None,
                             caps: vec![],
-                            fromInstanceId: None,
+                            from_instance_id: None,
                         })
                     }
                     LookupExpressionResultType::Null => {}
@@ -553,7 +553,7 @@ impl ResolverContext for ResolvedTimeline {
                     is_self_referencing: progress.is_self_referencing,
 
                     instances: filtered_instances,
-                    directReferences: direct_references,
+                    direct_references: direct_references,
                 });
 
                 Ok(())

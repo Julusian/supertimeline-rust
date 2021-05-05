@@ -18,9 +18,9 @@ pub enum EventType {
 
 #[derive(Debug, Clone)]
 pub struct NextEvent {
-    pub eventType: EventType,
+    pub event_type: EventType,
     pub time: Time,
-    pub objectId: String,
+    pub object_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -30,12 +30,12 @@ pub struct ResolveOptions {
     /** Limits the number of repeating objects in the future.
      * Defaults to 2, which means that the current one and the next will be resolved.
      */
-    pub limitCount: Option<usize>,
+    pub limit_count: Option<usize>,
     /** Limits the repeating objects to a time in the future */
-    pub limitTime: Option<Time>,
+    pub limit_time: Option<Time>,
     /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
-    pub resolveInstanceCollisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
-                                         // cache?: ResolverCache
+    pub resolve_instance_collisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
+                                           // cache?: ResolverCache
 }
 
 pub struct ResolvedTimelineObject {
@@ -120,9 +120,9 @@ fn get_state_at_time_for_layer(
                             }
                             ResolvedTimelineObjectEntry::Keyframe(keyframe) => {
                                 if let Some(ref mut state) = &mut best_state {
-                                    if let Some(parent_id) = &keyframe.instance.info.parentId {
+                                    if let Some(parent_id) = &keyframe.instance.info.parent_id {
                                         if parent_id.eq(&state.instance.id) {
-                                            if keyframe.keyframeEndTime.unwrap_or(Time::MAX)
+                                            if keyframe.keyframe_end_time.unwrap_or(Time::MAX)
                                                 > request_time
                                             {
                                                 // Apply the keyframe on the state:
