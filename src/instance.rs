@@ -1,3 +1,4 @@
+use crate::caps::Cap;
 use crate::expression::Expression;
 use crate::util::Time;
 use std::collections::HashSet;
@@ -22,12 +23,6 @@ pub struct ResolvedTimelineObjectInstance {
     pub instance: TimelineObjectInstance,
 }
 
-#[derive(Debug, Clone)]
-pub struct Cap {
-    pub id: String, // id of the parent
-    pub start: Time,
-    pub end: Option<Time>,
-}
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectResolved {

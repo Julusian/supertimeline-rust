@@ -1,9 +1,10 @@
+use crate::caps::Cap;
 use crate::api::{ResolvedTimeline, ResolverContext};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::expression::{
     interpret_expression, is_constant, simplify_expression, Expression, ExpressionError,
 };
-use crate::instance::{Cap, TimelineObjectInstance};
+use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::references::ReferencesBuilder;
 use crate::state;

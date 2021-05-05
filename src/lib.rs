@@ -1,6 +1,7 @@
 mod macros;
 
 mod api;
+mod caps;
 mod events;
 mod expression;
 mod instance;

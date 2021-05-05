@@ -1,12 +1,13 @@
 use crate::api::{ResolverContext, DEFAULT_LIMIT_COUNT};
 use crate::events::{EventForInstance, EventForInstanceExt};
-use crate::instance::{Cap, TimelineObjectInstance};
+use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::LookupExpressionResultType;
+use crate::caps::{CapsBuilder, Cap};
 use crate::references::ReferencesBuilder;
 use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;
 use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub type Time = u64;
 
@@ -146,21 +147,28 @@ pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Ca
         }
     }
 
-    instance.caps = join_caps(&instance.caps, &new_caps)
+    instance.caps = CapsBuilder::new()
+        .add(instance.caps.iter().cloned())
+        .add(new_caps.into_iter())
+        .done();
 }
 
-pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
-    let mut cap_map = HashMap::new();
+// pub fn join_caps<T1, T2>(a: T1, b: T2) -> Vec<Cap>
+// where
+//     T1: Iterator<Item = Cap>,
+//     T2: Iterator<Item = Cap>,
+// {
+//     let mut cap_map = HashMap::new();
 
-    for cap in a {
-        cap_map.insert(&cap.id, cap.clone());
-    }
-    for cap in b {
-        cap_map.insert(&cap.id, cap.clone());
-    }
+//     for cap in a {
+//         cap_map.insert(&cap.id, cap);
+//     }
+//     for cap in b {
+//         cap_map.insert(&cap.id, cap);
+//     }
 
-    cap_map.into_iter().map(|e| e.1).collect()
-}
+//     cap_map.into_iter().map(|e| e.1).collect()
+// }
 
 // pub fn clone_hashset_with_value<T: Clone + Eq + Hash>(a: &HashSet<T>, c: &T) -> HashSet<T> {
 //     let mut res = HashSet::new();
@@ -308,7 +316,10 @@ where
                             .add(&start.references)
                             .add_some2(end.and_then(|e| Some(e.references)))
                             .done(),
-                        caps: join_caps(&a.caps, &b.caps),
+                        caps: CapsBuilder::new()
+                            .add(a.caps.iter().cloned())
+                            .add(b.caps.iter().cloned())
+                            .done(),
 
                         isFirst: false,
                         originalStart: None,

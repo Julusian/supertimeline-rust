@@ -1,5 +1,5 @@
 use crate::api::ResolverContext;
-use crate::instance::Cap;
+use crate::caps::Cap;
 use crate::instance::TimelineObjectInstance;
 use crate::references::ReferencesBuilder;
 use crate::util::{add_caps_to_resuming, Time};

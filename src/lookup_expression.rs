@@ -1,12 +1,13 @@
 use crate::api::{ResolvedTimeline, ResolverContext};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
-use crate::instance::{Cap, TimelineObjectInstance};
+use crate::instance::TimelineObjectInstance;
+use crate::caps::{CapsBuilder, Cap};
 use crate::references::ReferencesBuilder;
 use crate::resolver::{resolve_timeline_obj, ObjectRefType, TimeWithReference};
 use crate::state;
 use crate::state::ResolvedTimelineObject;
-use crate::util::{clean_instances, invert_instances, join_caps, operate_on_arrays, Time};
+use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
 use regex::Regex;
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -24,9 +25,6 @@ pub enum LookupExpressionResultType {
 }
 
 pub struct LookupExpressionResult {
-    //pub instances: Vec
-    // pub instances: Option<TimeWithReference>,
-    // pub instances2: Option<Vec<TimelineObjectInstance>>,
     pub result: LookupExpressionResultType,
     pub all_references: HashSet<String>,
 }
@@ -201,7 +199,7 @@ fn lookup_expression_str(
                             // ignore the object
                         } else {
                             if let Some(first_instance) =
-                                ref_obj.resolved.instances.and_then(|i| i.first())
+                                ref_obj.resolved.instances.as_ref().and_then(|i| i.first())
                             {
                                 if let Some(end) = first_instance.end {
                                     let duration = end - first_instance.start;
@@ -387,14 +385,11 @@ fn lookup_expression_obj(
                             .add_some(left_instance.and_then(|i| Some(&i.references)))
                             .add_some(right_instance.and_then(|i| Some(&i.references)))
                             .done();
-                        let result_caps = join_caps(
-                            left_instance
-                                .and_then(|i| Some(&i.caps))
-                                .unwrap_or_else(|| &Vec::new()),
-                            right_instance
-                                .and_then(|i| Some(&i.caps))
-                                .unwrap_or_else(|| &Vec::new()),
-                        );
+
+                        let result_caps = CapsBuilder::new()
+                            .add_some(left_instance.and_then(|i| Some(i.caps.iter().cloned())))
+                            .add_some(right_instance.and_then(|i| Some(i.caps.iter().cloned())))
+                            .done();
 
                         push_instance(event.time, new_result_value, result_references, result_caps);
                         result_value = new_result_value;
