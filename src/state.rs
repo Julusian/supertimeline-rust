@@ -73,7 +73,7 @@ pub fn get_state(resolved: ResolvedStates, time: Time, event_limit: usize) -> Ti
 
     let mut layers = HashMap::new();
 
-    for (layer_id, _) in &resolved.timeline.layers {
+    for layer_id in resolved.timeline.layers.keys() {
         if let Some(state) = get_state_at_time_for_layer(&resolved.state, layer_id, time) {
             layers.insert(layer_id.clone(), state);
         }

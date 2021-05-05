@@ -39,7 +39,7 @@ impl LookupExpressionResult {
 
 pub fn lookup_expression(
     ctx: &dyn ResolverContext,
-    obj: &mut state::ResolvedTimelineObject,
+    obj: &ResolvedTimelineObject,
     expr: &Expression,
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {
@@ -126,7 +126,7 @@ fn match_expression_references(
 
 fn lookup_expression_str(
     ctx: &dyn ResolverContext,
-    obj: &mut state::ResolvedTimelineObject,
+    obj: &ResolvedTimelineObject,
     expr_str: &str,
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {
@@ -149,14 +149,14 @@ fn lookup_expression_str(
     // }
 
     if let Some(expression_references) = match_expression_references(ctx, expr_str) {
-        let mut referenced_objs: Vec<&mut ResolvedTimelineObject> = Vec::new();
+        let mut referenced_objs: Vec<&ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
             if ref_obj_id.eq(&obj.object_id) {
                 if obj.resolved.resolving {
                     obj.resolved.is_self_referencing = true;
                 }
             } else {
-                if let Some(ref_obj) = resolved_timeline.objects.get_mut(ref_obj_id) {
+                if let Some(ref_obj) = ctx.get_object(ref_obj_id) {
                     referenced_objs.push(ref_obj);
                 }
             }
@@ -284,7 +284,7 @@ fn lookup_expression_str(
 
 fn lookup_expression_obj(
     ctx: &dyn ResolverContext,
-    obj: &mut state::ResolvedTimelineObject,
+    obj: &state::ResolvedTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {

@@ -152,6 +152,8 @@ pub trait ResolverContext {
 
     fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError> ;
 
+    fn get_object(&self, id: &str) -> Option<&ResolvedTimelineObject>;
+
     fn get_object_ids_for_class(&self, class: &str) -> Option<&Vec<String>>;
     fn get_object_ids_for_layer(&self, layer: &str) -> Option<&Vec<String>>;
 }
@@ -160,9 +162,9 @@ pub trait ResolverContext {
 pub struct ResolvedTimeline {
     pub options: ResolveOptions,
     /** Map of all objects on timeline */
-    pub objects: HashMap<String, ResolvedTimelineObject>,
+    objects: HashMap<String, ResolvedTimelineObject>,
     /** Map of all classes on timeline, maps className to object ids */
-    pub classes: HashMap<String, Vec<String>>,
+    classes: HashMap<String, Vec<String>>,
     /** Map of the object ids, per layer */
     pub layers: HashMap<String, Vec<String>>,
     // pub statistics: ResolveStatistics,
@@ -191,9 +193,9 @@ pub fn resolve_timeline(
 
     // Step 2: go though and resolve the objects
     // TODO - support cache
-    for obj in resolved_timeline2.objects.values_mut() {
+    for obj in resolved_timeline2.objects.iter() {
         // TODO - the immutability here will cause me nightmares
-        resolved_timeline2.resolve_object(obj)?;
+        resolved_timeline2.resolve_object(obj.1)?;
     }
 
     Ok(resolved_timeline2)
@@ -206,6 +208,10 @@ impl ResolverContext for ResolvedTimeline {
         format!("{}", index)
     }
 
+    fn get_object(&self, id: &str) -> Option<&ResolvedTimelineObject> {
+        self.objects.get(id)
+    }
+
     fn get_object_ids_for_class(&self, class: &str) -> Option<&Vec<String>> {
         self.classes.get(class)
     }
@@ -214,6 +220,7 @@ impl ResolverContext for ResolvedTimeline {
     }
 
     fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError> {
+        // let obj = locked_obj.try_read().or_else(|e| Err(ResolveError::CircularDependency(object_id.to_string())))?;
         if obj.resolved.resolved {
             Ok(())
         } else if obj.resolved.resolving {
@@ -244,7 +251,7 @@ impl ResolverContext for ResolvedTimeline {
     
                 let looked_up_repeating = lookup_expression(
                     self,
-                    obj,
+                    &obj,
                     &repeating_expr,
                     &ObjectRefType::Duration,
                 );
@@ -284,7 +291,7 @@ impl ResolverContext for ResolvedTimeline {
     
                     let expr = Expression::String(format!(r"#{}", parent_id));
                     let lookup =
-                        lookup_expression(self, obj, &expr, &ObjectRefType::Start);
+                        lookup_expression(self, &obj, &expr, &ObjectRefType::Start);
                     match lookup.result {
                         LookupExpressionResultType::TimeRef(_) => {}
                         LookupExpressionResultType::Instances(instances) => {
@@ -302,7 +309,7 @@ impl ResolverContext for ResolvedTimeline {
                 }
     
                 let lookup_start =
-                    lookup_expression(self, obj, &start, &ObjectRefType::Start);
+                    lookup_expression(self, &obj, &start, &ObjectRefType::Start);
                 direct_references.extend(lookup_start.all_references);
     
                 let looked_up_starts = if refer_to_parent {
@@ -377,7 +384,7 @@ impl ResolverContext for ResolvedTimeline {
                         };
                         // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
                         let lookup_end =
-                            lookup_expression(self, obj, &end_expr, &ObjectRefType::End);
+                            lookup_expression(self, &obj, &end_expr, &ObjectRefType::End);
                         let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
                             apply_parent_instances(
                                 self,
@@ -428,7 +435,7 @@ impl ResolverContext for ResolvedTimeline {
                         };
                         let lookup_duration = lookup_expression(
                             self,
-                            obj,
+                            &obj,
                             &duration_expr,
                             &ObjectRefType::Duration,
                         );
