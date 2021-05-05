@@ -15,6 +15,11 @@ impl ReferencesBuilder {
         self
     }
 
+    pub fn add2(mut self, other: HashSet<String>) -> ReferencesBuilder {
+        self.value.extend(other.into_iter());
+        self
+    }
+
     pub fn add_some(mut self, other: Option<&HashSet<String>>) -> ReferencesBuilder {
         if let Some(other) = other {
             self.value.extend(other.iter().cloned());

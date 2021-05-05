@@ -473,7 +473,7 @@ impl<'a> IsEvent for SideEvent<'a> {
         self.is_start
     }
 
-    fn id(&self) -> &str {
+    fn id(&self) -> &String {
         &self.instance.id
     }
 }

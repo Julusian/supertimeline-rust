@@ -81,9 +81,11 @@ pub fn resolve_timeline_obj(
             };
 
             let start = simplify_expression(
-                &enable
+                enable
                     .enable_while
-                    .unwrap_or(enable.enable_start.unwrap_or(Expression::Null)),
+                    .as_ref()
+                    .or(enable.enable_start.as_ref())
+                    .unwrap_or(&Expression::Null),
             )
             .or_else(|e| {
                 Err(ResolveError::BadExpression((
@@ -163,33 +165,19 @@ pub fn resolve_timeline_obj(
                             events.push(EventForInstance {
                                 time: instance.start,
                                 is_start: true,
-                                instance,
-                                id: Some(format!("{}_{}", obj_id, index)),
-                                references: &instance.references,
+                                id: format!("{}_{}", obj_id, index),
+                                references: instance.references.clone(),
+                                caps: instance.caps.clone(),
                             })
                         }
                     }
                     LookupExpressionResultType::TimeRef(time_ref) => {
-                        let index = i_start;
-                        i_start = i_start + 1;
-
                         events.push(EventForInstance {
                             time: time_ref.value,
                             is_start: true,
-                            instance: &TimelineObjectInstance {
-                                id: resolved_timeline.get_id(),
-                                start: time_ref.value,
-                                end: None,
-                                references: time_ref.references.clone(),
-
-                                isFirst: false,
-                                originalStart: None,
-                                originalEnd: None,
-                                caps: vec![],
-                                fromInstanceId: None,
-                            },
-                            id: Some(format!("{}_{}", obj_id, index)),
-                            references: &time_ref.references,
+                            id: format!("{}_0", obj_id),
+                            references: time_ref.references.clone(),
+                            caps: vec![],
                         })
                     }
                     LookupExpressionResultType::Null => {}
@@ -224,38 +212,24 @@ pub fn resolve_timeline_obj(
                         LookupExpressionResultType::Instances(instances) => {
                             for instance in instances {
                                 let index = i_end;
-                                i_start = i_end + 1;
+                                i_end = i_end + 1;
 
                                 events.push(EventForInstance {
                                     time: instance.start,
                                     is_start: false,
-                                    instance,
-                                    id: Some(format!("{}_{}", obj_id, index)),
-                                    references: &instance.references,
+                                    id: format!("{}_{}", obj_id, index),
+                                    references: instance.references.clone(),
+                                    caps: instance.caps.clone(),
                                 })
                             }
                         }
                         LookupExpressionResultType::TimeRef(time_ref) => {
-                            let index = i_end;
-                            i_start = i_end + 1;
-
                             events.push(EventForInstance {
                                 time: time_ref.value,
                                 is_start: false,
-                                instance: &TimelineObjectInstance {
-                                    id: resolved_timeline.get_id(),
-                                    start: time_ref.value,
-                                    end: None,
-                                    references: time_ref.references.clone(),
-
-                                    isFirst: false,
-                                    originalStart: None,
-                                    originalEnd: None,
-                                    caps: vec![],
-                                    fromInstanceId: None,
-                                },
-                                id: Some(format!("{}_{}", obj_id, index)),
-                                references: &time_ref.references,
+                                id: format!("{}_0", obj_id),
+                                references: time_ref.references.clone(),
+                                caps: vec![],
                             })
                         }
                         LookupExpressionResultType::Null => {}
@@ -308,34 +282,19 @@ pub fn resolve_timeline_obj(
                         };
 
                         let mut new_events = Vec::new();
-                        for event in events {
+                        for event in &events {
                             if event.is_start {
-                                let endTime = event.time + duration_val;
                                 let references = ReferencesBuilder::new()
-                                    .add(&event.instance.references)
+                                    .add(&event.references)
                                     .add(&duration2.references)
                                     .done();
 
-                                let index = i_end;
-                                i_start = i_end + 1;
-
                                 new_events.push(EventForInstance {
-                                    time: endTime,
+                                    time: event.time + duration_val,
                                     is_start: false,
-                                    instance: &TimelineObjectInstance {
-                                        id: event.instance.id.clone(),
-                                        start: endTime,
-                                        end: None,
-                                        references,
-
-                                        isFirst: false,
-                                        originalStart: None,
-                                        originalEnd: None,
-                                        caps: vec![],
-                                        fromInstanceId: None,
-                                    },
                                     id: event.id.clone(),
-                                    references: &references,
+                                    references: references,
+                                    caps: vec![],
                                 })
                             }
                         }
@@ -350,8 +309,8 @@ pub fn resolve_timeline_obj(
                 // figure out what parent-instance the instances are tied to, and cap them
                 let mut capped_instances = Vec::new();
 
-                if let Some(parent_instances) = parent_instances {
-                    for (i, instance) in new_instances.iter().enumerate() {
+                if let Some(parent_instances) = &parent_instances {
+                    for instance in &new_instances {
                         let referred_parent_instance =
                             parent_instances.iter().find(|parent_instance| {
                                 instance.references.contains(&parent_instance.id)

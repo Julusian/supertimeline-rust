@@ -108,18 +108,18 @@ pub fn clean_instances(
                 events.push(EventForInstance {
                     time: instance.start,
                     is_start: true,
-                    references: &instance.references,
-                    instance,
-                    id: None,
+                    references: instance.references.clone(),
+                    caps: instance.caps.clone(),
+                    id: instance.id.clone(),
                 });
 
                 if let Some(end) = instance.end {
                     events.push(EventForInstance {
                         time: end,
                         is_start: false,
-                        references: &instance.references,
-                        instance,
-                        id: None,
+                        references: instance.references.clone(),
+                        caps: instance.caps.clone(),
+                        id: instance.id.clone(),
                     });
                 }
             }
@@ -479,7 +479,7 @@ pub fn cap_instance(
 
     let instance_end = instance.end.unwrap_or(Time::MAX);
 
-    for p in *parent_instances {
+    for p in parent_instances {
         let p_end = p.end.unwrap_or(Time::MAX);
         // TODO - could this not be achieved by instance.start <= p.end && instance.end >= p.start ?
         if (instance.start >= p.start && instance.start < p_end)

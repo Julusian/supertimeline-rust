@@ -1,4 +1,5 @@
 use crate::api::ResolverContext;
+use crate::instance::Cap;
 use crate::instance::TimelineObjectInstance;
 use crate::references::ReferencesBuilder;
 use crate::util::{add_caps_to_resuming, Time};
@@ -8,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 pub trait IsEvent {
     fn time(&self) -> Time;
     fn is_start(&self) -> bool;
-    fn id(&self) -> &str;
+    fn id(&self) -> &String;
 }
 
 pub trait VecIsEventExt {
@@ -52,14 +53,14 @@ impl<T: IsEvent> VecIsEventExt for Vec<T> {
     }
 }
 
-pub struct EventForInstance<'a> {
+pub struct EventForInstance {
     pub time: Time,
     pub is_start: bool,
-    pub references: &'a HashSet<String>,
-    pub instance: &'a TimelineObjectInstance,
-    pub id: Option<String>,
+    pub references: HashSet<String>,
+    pub caps: Vec<Cap>,
+    pub id: String,
 }
-impl<'a> IsEvent for EventForInstance<'a> {
+impl IsEvent for EventForInstance {
     fn time(&self) -> u64 {
         self.time
     }
@@ -68,12 +69,8 @@ impl<'a> IsEvent for EventForInstance<'a> {
         self.is_start
     }
 
-    fn id(&self) -> &str {
-        if let Some(id) = &self.id {
-            id
-        } else {
-            &self.instance.id
-        }
+    fn id(&self) -> &String {
+        &self.id
     }
 }
 
@@ -85,7 +82,7 @@ pub trait EventForInstanceExt {
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance>;
 }
-impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
+impl EventForInstanceExt for Vec<EventForInstance> {
     fn to_instances(
         &mut self,
         ctx: &dyn ResolverContext,
@@ -101,15 +98,15 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
         let mut previous_active = false;
 
         for event in self {
-            let event_id = &event.instance.id;
+            let event_id = event.id().to_string();
 
             let last_instance = return_instances.last_mut();
 
             // Track the event's change
             if event.is_start {
-                active_instances.insert(event_id, &event);
+                active_instances.insert(&event_id, &event);
             } else {
-                active_instances.remove(event_id);
+                active_instances.remove(&event_id);
             }
 
             if active_instances.is_empty() {
@@ -129,7 +126,7 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         && event.is_start
                         && last_instance.end.is_none()
                         && !active_instance_id
-                            .and_then(|aiid| Some(aiid.eq(event_id)))
+                            .and_then(|aiid| Some(aiid.eq(&event_id)))
                             .unwrap_or(false)
                     {
                         // Start a new instance:
@@ -138,7 +135,7 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                             id: ctx.get_id(),
                             start: event.time,
                             end: None,
-                            references: event.references.clone(),
+                            references: event.references,
 
                             isFirst: false,
                             caps: Vec::new(),
@@ -146,11 +143,11 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                             originalEnd: None,
                             fromInstanceId: None,
                         });
-                        active_instance_id = Some(event_id);
+                        active_instance_id = Some(&event_id);
                     } else if !allow_merge
                         && !event.is_start
                         && active_instance_id
-                            .and_then(|aiid| Some(aiid.eq(event_id)))
+                            .and_then(|aiid| Some(aiid.eq(&event_id)))
                             .unwrap_or(false)
                     {
                         // The active instance stopped playing, but another is still playing
@@ -185,32 +182,32 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         last_instance.end = None;
                         last_instance.references = ReferencesBuilder::new()
                             .add(&last_instance.references)
-                            .add(event.references)
+                            .add2(event.references)
                             .done();
-                        add_caps_to_resuming(last_instance, &event.instance.caps);
-                    } else if let Some(end) = last_instance.end {
+                        add_caps_to_resuming(last_instance, &event.caps);
+                    } else if let Some(_end) = last_instance.end {
                         // There is no previously running instance
                         // Start a new instance:
                         return_instances.push(TimelineObjectInstance {
                             id: event_id.to_string(),
                             start: event.time,
                             end: None,
-                            references: event.references.clone(),
-                            caps: event.instance.caps.clone(),
+                            references: event.references,
+                            caps: event.caps,
 
                             isFirst: false,
                             originalStart: None,
                             originalEnd: None,
                             fromInstanceId: None,
                         });
-                        active_instance_id = Some(event_id);
+                        active_instance_id = Some(&event_id);
                     } else {
                         // There is already a running instance
                         last_instance.references = ReferencesBuilder::new()
                             .add(&last_instance.references)
-                            .add(event.references)
+                            .add2(event.references)
                             .done();
-                        add_caps_to_resuming(last_instance, &event.instance.caps);
+                        add_caps_to_resuming(last_instance, &event.caps);
                     }
                 } else {
                     // There is no previously running instance
@@ -219,15 +216,15 @@ impl<'a> EventForInstanceExt for Vec<EventForInstance<'a>> {
                         id: event_id.to_string(),
                         start: event.time,
                         end: None,
-                        references: event.references.clone(),
-                        caps: event.instance.caps.clone(),
+                        references: event.references,
+                        caps: event.caps,
 
                         isFirst: false,
                         originalStart: None,
                         originalEnd: None,
                         fromInstanceId: None,
                     });
-                    active_instance_id = Some(event_id);
+                    active_instance_id = Some(&event_id);
                 }
             }
         }

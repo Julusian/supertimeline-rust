@@ -97,10 +97,7 @@ fn add_object_to_timeline(
         },
     };
 
-    add_object_to_resolved_timeline(timeline, resolved_obj, Some(obj));
-
     // track child objects
-    // if obj.is_group() {
     if let Some(children) = obj.children() {
         for child in children {
             add_object_to_timeline(
@@ -112,7 +109,6 @@ fn add_object_to_timeline(
             );
         }
     }
-    // }
 
     // track keyframes
     if let Some(keyframes) = obj.keyframes() {
@@ -134,6 +130,8 @@ fn add_object_to_timeline(
             add_object_to_resolved_timeline(timeline, resolved_obj, None)
         }
     }
+
+    add_object_to_resolved_timeline(timeline, resolved_obj, Some(obj));
 }
 
 pub trait ResolverContext {
