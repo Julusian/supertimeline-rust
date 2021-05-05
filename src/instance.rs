@@ -19,27 +19,47 @@ pub struct ResolvedTimelineObjectInstanceKeyframe {
 #[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstance {
     // pub object: TimelineObject,
-    pub resolved: TimelineObjectResolved,
+    pub resolved: TimelineObjectResolveStatus,
+    pub info: TimelineObjectResolveInfo,
     pub instance: TimelineObjectInstance,
 }
 
+#[derive(Debug, Clone)]
+pub enum TimelineObjectResolveStatus {
+    Pending,
+    InProgress(TimelineObjectResolvedWip),
+    Complete(TimelineObjectResolved),
+}
 
 #[derive(Debug, Clone)]
-pub struct TimelineObjectResolved {
-    /** Is set to true when object has been resolved */
-    pub resolved: bool,
-    /** Is set to true while object is resolved (to prevent circular references) */
-    pub resolving: bool,
-    /** Instances of the object on the timeline */
-    pub instances: Option<Vec<TimelineObjectInstance>>,
+pub struct TimelineObjectResolveInfo {
     /** Increases the more levels inside of a group the objects is */
-    pub levelDeep: Option<usize>,
+    pub depth: usize,
     /** Id of the parent object */
     pub parentId: Option<String>,
     /** True if object is a keyframe */
     pub isKeyframe: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TimelineObjectResolvedWip {
     /** True if object is referencing itself (only directly, not indirectly via another object) */
     pub is_self_referencing: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TimelineObjectResolved {
+    // pub status: Rc<Atomic<TimelineObjectResolveStatus>>,
+
+    // /** Is set to true when object has been resolved */
+    // pub resolved: bool,
+    // /** Is set to true while object is resolved (to prevent circular references) */
+    // pub resolving: bool,
+    /** True if object is referencing itself (only directly, not indirectly via another object) */
+    pub is_self_referencing: bool,
+
+    /** Instances of the object on the timeline */
+    pub instances: Option<Vec<TimelineObjectInstance>>,
     /** Ids of all other objects that directly affects this object (ie through direct reference, classes, etc) */
     pub directReferences: HashSet<String>,
 }

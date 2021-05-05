@@ -1,11 +1,10 @@
 use crate::api::ResolverContext;
+use crate::caps::{Cap, CapsBuilder};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
-use crate::instance::TimelineObjectInstance;
-use crate::caps::{CapsBuilder, Cap};
+use crate::instance::{TimelineObjectInstance, TimelineObjectResolveStatus};
 use crate::references::ReferencesBuilder;
 use crate::resolver::{ObjectRefType, TimeWithReference};
-use crate::state;
 use crate::state::ResolvedTimelineObject;
 use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
 use regex::Regex;
@@ -52,9 +51,7 @@ pub fn lookup_expression(
             }),
             all_references: HashSet::new(),
         },
-        Expression::String(str) => {
-            lookup_expression_str(ctx, obj, str, default_ref_type)
-        }
+        Expression::String(str) => lookup_expression_str(ctx, obj, str, default_ref_type),
         Expression::Expression(exprObj) => {
             lookup_expression_obj(ctx, obj, exprObj, default_ref_type)
         }
@@ -67,10 +64,7 @@ pub fn lookup_expression(
                     LookupExpressionResultType::TimeRef(time_ref)
                 } // Can't invert a time
                 LookupExpressionResultType::Instances(instances) => {
-                    LookupExpressionResultType::Instances(invert_instances(
-                        ctx,
-                        &instances,
-                    ))
+                    LookupExpressionResultType::Instances(invert_instances(ctx, &instances))
                 }
             };
 
@@ -104,7 +98,8 @@ fn match_expression_references(
 
         Some(MatchExpressionReferences {
             remaining_expression: class_match.get(2).unwrap().as_str().to_string(),
-            object_ids_to_reference: ctx.get_object_ids_for_class(class_name)
+            object_ids_to_reference: ctx
+                .get_object_ids_for_class(class_name)
                 .cloned()
                 .unwrap_or_default(),
             all_references: set![format!(".{}", class_name)],
@@ -114,7 +109,8 @@ fn match_expression_references(
 
         Some(MatchExpressionReferences {
             remaining_expression: layer_match.get(2).unwrap().as_str().to_string(),
-            object_ids_to_reference: ctx.get_object_ids_for_layer(layer_id)
+            object_ids_to_reference: ctx
+                .get_object_ids_for_layer(layer_id)
                 .cloned()
                 .unwrap_or_default(),
             all_references: set![format!("${}", layer_id)],
@@ -152,9 +148,18 @@ fn lookup_expression_str(
         let mut referenced_objs: Vec<&ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
             if ref_obj_id.eq(&obj.object_id) {
-                if obj.resolved.resolving {
-                    obj.resolved.is_self_referencing = true;
-                }
+                let mut locked = obj.resolved.write().unwrap(); // TODO - handle error
+                match *locked {
+                    TimelineObjectResolveStatus::Pending => {
+                        // This is fine, we will resolve it shortly
+                    }
+                    TimelineObjectResolveStatus::InProgress(progress) => {
+                        progress.is_self_referencing = true;
+                    }
+                    TimelineObjectResolveStatus::Complete(_) => {
+                        // This is fine. Very good actually
+                    }
+                };
             } else {
                 if let Some(ref_obj) = ctx.get_object(ref_obj_id) {
                     referenced_objs.push(ref_obj);
@@ -162,11 +167,11 @@ fn lookup_expression_str(
             }
         }
 
-        if obj.resolved.is_self_referencing {
+        if obj.is_self_referencing() {
             // Exclude any self-referencing objects:
             referenced_objs = referenced_objs
                 .into_iter()
-                .filter(|ref_obj| !ref_obj.resolved.is_self_referencing)
+                .filter(|ref_obj| !ref_obj.is_self_referencing())
                 .collect::<Vec<_>>();
         }
 
@@ -259,8 +264,7 @@ fn lookup_expression_str(
                             }
                         }
                     } else {
-                        return_instances =
-                            clean_instances(ctx, &return_instances, true, true);
+                        return_instances = clean_instances(ctx, &return_instances, true, true);
                     }
 
                     LookupExpressionResult {
@@ -284,7 +288,7 @@ fn lookup_expression_str(
 
 fn lookup_expression_obj(
     ctx: &dyn ResolverContext,
-    obj: &state::ResolvedTimelineObject,
+    obj: &ResolvedTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
 ) -> LookupExpressionResult {

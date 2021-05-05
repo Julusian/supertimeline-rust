@@ -1,21 +1,24 @@
-use std::cmp::min;
 use crate::caps::Cap;
-use crate::util::cap_instance;
-use crate::references::ReferencesBuilder;
-use crate::resolver::TimeWithReference;
 use crate::events::{EventForInstance, EventForInstanceExt};
-use crate::instance::TimelineObjectInstance;
-use crate::util::apply_parent_instances;
-use crate::lookup_expression::lookup_expression;
-use crate::expression::{interpret_expression,simplify_expression, is_constant,Expression};
-use crate::util::{apply_repeating_instances, Time};
-use crate::resolver::ResolveError;
+use crate::expression::{interpret_expression, is_constant, simplify_expression, Expression};
+use crate::instance::TimelineObjectResolveInfo;
+use crate::instance::TimelineObjectResolvedWip;
 use crate::instance::{TimelineEnable, TimelineObjectResolved};
+use crate::instance::{TimelineObjectInstance, TimelineObjectResolveStatus};
+use crate::lookup_expression::lookup_expression;
+use crate::lookup_expression::LookupExpressionResultType;
+use crate::references::ReferencesBuilder;
 use crate::resolver::ObjectRefType;
+use crate::resolver::ResolveError;
+use crate::resolver::TimeWithReference;
 use crate::state::{ResolveOptions, ResolvedTimelineObject};
-use crate::lookup_expression::{LookupExpressionResultType};
+use crate::util::apply_parent_instances;
+use crate::util::cap_instance;
+use crate::util::{apply_repeating_instances, Time};
+use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::RwLock;
 
 pub const DEFAULT_LIMIT_COUNT: usize = 2;
 
@@ -86,7 +89,6 @@ fn add_object_to_timeline(
     obj: &Box<dyn IsTimelineObject>,
     depth: usize,
     parent_id: Option<&String>,
-    is_keyframe: bool,
 ) {
     // TODO - duplicate id check
     // if (resolvedTimeline.objects[obj.id]) throw Error(`All timelineObjects must be unique! (duplicate: "${obj.id}")`)
@@ -94,32 +96,18 @@ fn add_object_to_timeline(
     let resolved_obj = ResolvedTimelineObject {
         object_id: obj.id().to_string(),
         object_enable: obj.enable().clone(),
-        resolved: TimelineObjectResolved {
-            resolved: false,
-            resolving: false,
-            levelDeep: Some(depth),
-            instances: None,
-            directReferences: if let Some(id) = parent_id {
-                set![id.clone()]
-            } else {
-                set![]
-            },
+        resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
+        info: TimelineObjectResolveInfo {
+            depth: depth,
             parentId: parent_id.cloned(),
-            isKeyframe: is_keyframe,
-            is_self_referencing: false,
+            isKeyframe: false,
         },
     };
 
     // track child objects
     if let Some(children) = obj.children() {
         for child in children {
-            add_object_to_timeline(
-                timeline,
-                child,
-                depth + 1,
-                Some(&resolved_obj.object_id),
-                false,
-            );
+            add_object_to_timeline(timeline, child, depth + 1, Some(&resolved_obj.object_id));
         }
     }
 
@@ -129,15 +117,11 @@ fn add_object_to_timeline(
             let resolved_obj = ResolvedTimelineObject {
                 object_id: keyframe.id().to_string(),
                 object_enable: keyframe.enable().clone(),
-                resolved: TimelineObjectResolved {
-                    resolved: false,
-                    resolving: false,
-                    levelDeep: Some(depth + 1),
-                    instances: None,
-                    directReferences: set![resolved_obj.object_id.clone()],
+                resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
+                info: TimelineObjectResolveInfo {
+                    depth: depth + 1,
                     parentId: Some(resolved_obj.object_id.clone()),
                     isKeyframe: true,
-                    is_self_referencing: false,
                 },
             };
             add_object_to_resolved_timeline(timeline, resolved_obj, None)
@@ -150,7 +134,7 @@ fn add_object_to_timeline(
 pub trait ResolverContext {
     fn generate_id(&self) -> String;
 
-    fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError> ;
+    fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError>;
 
     fn get_object(&self, id: &str) -> Option<&ResolvedTimelineObject>;
 
@@ -186,7 +170,7 @@ pub fn resolve_timeline(
 
     // Step 1: pre-populate resolvedTimeline with objects
     for obj in timeline {
-        add_object_to_timeline(&mut resolved_timeline, &obj, 0, None, false);
+        add_object_to_timeline(&mut resolved_timeline, &obj, 0, None);
     }
 
     let resolved_timeline2 = Box::new(resolved_timeline);
@@ -200,7 +184,6 @@ pub fn resolve_timeline(
 
     Ok(resolved_timeline2)
 }
-
 
 impl ResolverContext for ResolvedTimeline {
     fn generate_id(&self) -> String {
@@ -220,139 +203,197 @@ impl ResolverContext for ResolvedTimeline {
     }
 
     fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError> {
-        // let obj = locked_obj.try_read().or_else(|e| Err(ResolveError::CircularDependency(object_id.to_string())))?;
-        if obj.resolved.resolved {
-            Ok(())
-        } else if obj.resolved.resolving {
-            Err(ResolveError::CircularDependency(obj.object_id.to_string()))
-        } else {
-            obj.resolved.resolving = true;
-    
-            let mut direct_references = HashSet::new();
-    
-            let mut instances = Vec::new();
-    
-            let obj_id = &obj.object_id;
-            for enable in &obj.object_enable {
-                let repeating_expr = if let Some(expr) = &enable.repeating {
-                    match interpret_expression(expr) {
+        {
+            let mut current_status = obj.resolved.write().unwrap(); // TODO - handle error
+            match *current_status {
+                TimelineObjectResolveStatus::Complete(_) => {
+                    // Already resolved
+                    return Ok(());
+                }
+                TimelineObjectResolveStatus::InProgress(progress) => {
+                    // In progress means we hit a circular route
+                    // TODO - this will need to track callers/something when threading
+                    progress.is_self_referencing = true;
+
+                    return Err(ResolveError::CircularDependency(obj.object_id.to_string()));
+                }
+                TimelineObjectResolveStatus::Pending => {
+                    // Mark it as in progress, and release the lock
+                    *current_status =
+                        TimelineObjectResolveStatus::InProgress(TimelineObjectResolvedWip {
+                            is_self_referencing: false,
+                        });
+                }
+            };
+        }
+
+        // Start resolving
+        let mut direct_references = HashSet::new();
+
+        let mut instances = Vec::new();
+
+        let obj_id = &obj.object_id;
+        for enable in &obj.object_enable {
+            let repeating_expr = if let Some(expr) = &enable.repeating {
+                match interpret_expression(expr) {
+                    Ok(val) => val,
+                    Err(err) => {
+                        return Err(ResolveError::BadExpression((
+                            obj_id.to_string(),
+                            "repeating",
+                            err,
+                        )))
+                    }
+                }
+            } else {
+                Expression::Null
+            };
+
+            let looked_up_repeating =
+                lookup_expression(self, &obj, &repeating_expr, &ObjectRefType::Duration);
+            direct_references.extend(looked_up_repeating.all_references);
+
+            let looked_up_repeating2 = match looked_up_repeating.result {
+                LookupExpressionResultType::Instances(_) => {
+                    return Err(ResolveError::InstancesArrayNotSupported((
+                        obj_id.to_string(),
+                        "repeating",
+                    )))
+                }
+                LookupExpressionResultType::TimeRef(r) => Some(r),
+                LookupExpressionResultType::Null => None,
+            };
+
+            let start = simplify_expression(
+                enable
+                    .enable_while
+                    .as_ref()
+                    .or(enable.enable_start.as_ref())
+                    .unwrap_or(&Expression::Null),
+            )
+            .or_else(|e| {
+                Err(ResolveError::BadExpression((
+                    obj_id.to_string(),
+                    "simplify",
+                    e,
+                )))
+            })?;
+
+            let mut parent_instances = None;
+            let mut has_parent = false;
+            let mut refer_to_parent = false;
+            if let Some(parent_id) = &obj.info.parentId {
+                has_parent = true;
+
+                let expr = Expression::String(format!(r"#{}", parent_id));
+                let lookup = lookup_expression(self, &obj, &expr, &ObjectRefType::Start);
+                match lookup.result {
+                    LookupExpressionResultType::TimeRef(_) => {}
+                    LookupExpressionResultType::Instances(instances) => {
+                        parent_instances = Some(instances);
+                    }
+                    LookupExpressionResultType::Null => {}
+                }
+
+                direct_references.extend(lookup.all_references);
+
+                if is_constant(&start) {
+                    // Only use parent if the expression resolves to a number (ie doesn't contain any references)
+                    refer_to_parent = true;
+                }
+            }
+
+            let lookup_start = lookup_expression(self, &obj, &start, &ObjectRefType::Start);
+            direct_references.extend(lookup_start.all_references);
+
+            let looked_up_starts = if refer_to_parent {
+                apply_parent_instances(self, &parent_instances, &lookup_start.result)
+            } else {
+                lookup_start.result
+            };
+
+            let mut new_instances = Vec::new();
+
+            if let Some(_enable_while) = &enable.enable_while {
+                match looked_up_starts {
+                    LookupExpressionResultType::Instances(instances) => new_instances = instances,
+                    LookupExpressionResultType::TimeRef(time_ref) => {
+                        new_instances.push(TimelineObjectInstance {
+                            id: self.generate_id(),
+                            start: time_ref.value,
+                            end: None,
+                            references: time_ref.references,
+
+                            isFirst: false,
+                            originalStart: None,
+                            originalEnd: None,
+                            caps: vec![],
+                            fromInstanceId: None,
+                        })
+                    }
+                    LookupExpressionResultType::Null => {}
+                }
+            } else {
+                let mut events = Vec::new();
+                let mut i_start = 0;
+                let mut i_end = 0;
+
+                match &looked_up_starts {
+                    LookupExpressionResultType::Instances(instances) => {
+                        for instance in instances {
+                            let index = i_start;
+                            i_start = i_start + 1;
+
+                            events.push(EventForInstance {
+                                time: instance.start,
+                                is_start: true,
+                                id: format!("{}_{}", obj_id, index),
+                                references: instance.references.clone(),
+                                caps: instance.caps.clone(),
+                            })
+                        }
+                    }
+                    LookupExpressionResultType::TimeRef(time_ref) => {
+                        events.push(EventForInstance {
+                            time: time_ref.value,
+                            is_start: true,
+                            id: format!("{}_0", obj_id),
+                            references: time_ref.references.clone(),
+                            caps: vec![],
+                        })
+                    }
+                    LookupExpressionResultType::Null => {}
+                }
+
+                if let Some(enable_end) = &enable.enable_end {
+                    let end_expr = match interpret_expression(enable_end) {
                         Ok(val) => val,
                         Err(err) => {
                             return Err(ResolveError::BadExpression((
                                 obj_id.to_string(),
-                                "repeating",
+                                "end",
                                 err,
                             )))
                         }
-                    }
-                } else {
-                    Expression::Null
-                };
-    
-                let looked_up_repeating = lookup_expression(
-                    self,
-                    &obj,
-                    &repeating_expr,
-                    &ObjectRefType::Duration,
-                );
-                direct_references.extend(looked_up_repeating.all_references);
-    
-                let looked_up_repeating2 = match looked_up_repeating.result {
-                    LookupExpressionResultType::Instances(_) => {
-                        return Err(ResolveError::InstancesArrayNotSupported((
-                            obj_id.to_string(),
-                            "repeating",
-                        )))
-                    }
-                    LookupExpressionResultType::TimeRef(r) => Some(r),
-                    LookupExpressionResultType::Null => None,
-                };
-    
-                let start = simplify_expression(
-                    enable
-                        .enable_while
-                        .as_ref()
-                        .or(enable.enable_start.as_ref())
-                        .unwrap_or(&Expression::Null),
-                )
-                .or_else(|e| {
-                    Err(ResolveError::BadExpression((
-                        obj_id.to_string(),
-                        "simplify",
-                        e,
-                    )))
-                })?;
-    
-                let mut parent_instances = None;
-                let mut has_parent = false;
-                let mut refer_to_parent = false;
-                if let Some(parent_id) = &obj.resolved.parentId {
-                    has_parent = true;
-    
-                    let expr = Expression::String(format!(r"#{}", parent_id));
-                    let lookup =
-                        lookup_expression(self, &obj, &expr, &ObjectRefType::Start);
-                    match lookup.result {
-                        LookupExpressionResultType::TimeRef(_) => {}
-                        LookupExpressionResultType::Instances(instances) => {
-                            parent_instances = Some(instances);
-                        }
-                        LookupExpressionResultType::Null => {}
-                    }
-    
-                    direct_references.extend(lookup.all_references);
-    
-                    if is_constant(&start) {
-                        // Only use parent if the expression resolves to a number (ie doesn't contain any references)
-                        refer_to_parent = true;
-                    }
-                }
-    
-                let lookup_start =
-                    lookup_expression(self, &obj, &start, &ObjectRefType::Start);
-                direct_references.extend(lookup_start.all_references);
-    
-                let looked_up_starts = if refer_to_parent {
-                    apply_parent_instances(self, &parent_instances, &lookup_start.result)
-                } else {
-                    lookup_start.result
-                };
-    
-                let mut new_instances = Vec::new();
-    
-                if let Some(enable_while) = &enable.enable_while {
-                    match looked_up_starts {
-                        LookupExpressionResultType::Instances(instances) => new_instances = instances,
-                        LookupExpressionResultType::TimeRef(time_ref) => {
-                            new_instances.push(TimelineObjectInstance {
-                                id: self.generate_id(),
-                                start: time_ref.value,
-                                end: None,
-                                references: time_ref.references,
-    
-                                isFirst: false,
-                                originalStart: None,
-                                originalEnd: None,
-                                caps: vec![],
-                                fromInstanceId: None,
-                            })
-                        }
-                        LookupExpressionResultType::Null => {}
-                    }
-                } else {
-                    let mut events = Vec::new();
-                    let mut i_start = 0;
-                    let mut i_end = 0;
-    
-                    match &looked_up_starts {
+                    };
+                    // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
+                    let lookup_end = lookup_expression(self, &obj, &end_expr, &ObjectRefType::End);
+                    let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
+                        apply_parent_instances(self, &parent_instances, &lookup_end.result)
+                    } else {
+                        lookup_end.result
+                    };
+
+                    direct_references.extend(lookup_end.all_references);
+                    match &looked_up_ends {
                         LookupExpressionResultType::Instances(instances) => {
                             for instance in instances {
-                                let index = i_start;
-                                i_start = i_start + 1;
-    
+                                let index = i_end;
+                                i_end = i_end + 1;
+
                                 events.push(EventForInstance {
                                     time: instance.start,
-                                    is_start: true,
+                                    is_start: false,
                                     id: format!("{}_{}", obj_id, index),
                                     references: instance.references.clone(),
                                     caps: instance.caps.clone(),
@@ -362,7 +403,7 @@ impl ResolverContext for ResolvedTimeline {
                         LookupExpressionResultType::TimeRef(time_ref) => {
                             events.push(EventForInstance {
                                 time: time_ref.value,
-                                is_start: true,
+                                is_start: false,
                                 id: format!("{}_0", obj_id),
                                 references: time_ref.references.clone(),
                                 caps: vec![],
@@ -370,195 +411,153 @@ impl ResolverContext for ResolvedTimeline {
                         }
                         LookupExpressionResultType::Null => {}
                     }
-    
-                    if let Some(enable_end) = &enable.enable_end {
-                        let end_expr = match interpret_expression(enable_end) {
-                            Ok(val) => val,
-                            Err(err) => {
-                                return Err(ResolveError::BadExpression((
+                } else if let Some(enable_duration) = &enable.duration {
+                    let duration_expr = match interpret_expression(enable_duration) {
+                        Ok(val) => val,
+                        Err(err) => {
+                            return Err(ResolveError::BadExpression((
+                                obj_id.to_string(),
+                                "duration",
+                                err,
+                            )))
+                        }
+                    };
+                    let lookup_duration =
+                        lookup_expression(self, &obj, &duration_expr, &ObjectRefType::Duration);
+
+                    direct_references.extend(lookup_duration.all_references);
+
+                    let looked_up_duration = match lookup_duration.result {
+                        LookupExpressionResultType::Instances(instances) => {
+                            if instances.len() > 1 {
+                                return Err(ResolveError::InstancesArrayNotSupported((
                                     obj_id.to_string(),
-                                    "end",
-                                    err,
-                                )))
+                                    "duration",
+                                )));
+                            } else if let Some(instance) = instances.get(0) {
+                                Some(TimeWithReference {
+                                    value: instance.start,
+                                    references: instance.references.clone(),
+                                })
+                            } else {
+                                None
                             }
-                        };
-                        // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
-                        let lookup_end =
-                            lookup_expression(self, &obj, &end_expr, &ObjectRefType::End);
-                        let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
-                            apply_parent_instances(
-                                self,
-                                &parent_instances,
-                                &lookup_end.result,
-                            )
+                        }
+                        LookupExpressionResultType::TimeRef(time_ref) => Some(time_ref),
+                        LookupExpressionResultType::Null => None,
+                    };
+
+                    if let Some(duration2) = looked_up_duration {
+                        let duration_val = if let Some(repeating) = &looked_up_repeating2 {
+                            min(repeating.value, duration2.value)
                         } else {
-                            lookup_end.result
+                            duration2.value
                         };
-    
-                        direct_references.extend(lookup_end.all_references);
-                        match &looked_up_ends {
-                            LookupExpressionResultType::Instances(instances) => {
-                                for instance in instances {
-                                    let index = i_end;
-                                    i_end = i_end + 1;
-    
-                                    events.push(EventForInstance {
-                                        time: instance.start,
-                                        is_start: false,
-                                        id: format!("{}_{}", obj_id, index),
-                                        references: instance.references.clone(),
-                                        caps: instance.caps.clone(),
-                                    })
-                                }
-                            }
-                            LookupExpressionResultType::TimeRef(time_ref) => {
-                                events.push(EventForInstance {
-                                    time: time_ref.value,
+
+                        let mut new_events = Vec::new();
+                        for event in &events {
+                            if event.is_start {
+                                let references = ReferencesBuilder::new()
+                                    .add(&event.references)
+                                    .add(&duration2.references)
+                                    .done();
+
+                                new_events.push(EventForInstance {
+                                    time: event.time + duration_val,
                                     is_start: false,
-                                    id: format!("{}_0", obj_id),
-                                    references: time_ref.references.clone(),
+                                    id: event.id.clone(),
+                                    references: references,
                                     caps: vec![],
                                 })
                             }
-                            LookupExpressionResultType::Null => {}
                         }
-                    } else if let Some(enable_duration) = &enable.duration {
-                        let duration_expr = match interpret_expression(enable_duration) {
-                            Ok(val) => val,
-                            Err(err) => {
-                                return Err(ResolveError::BadExpression((
-                                    obj_id.to_string(),
-                                    "duration",
-                                    err,
-                                )))
-                            }
-                        };
-                        let lookup_duration = lookup_expression(
-                            self,
-                            &obj,
-                            &duration_expr,
-                            &ObjectRefType::Duration,
-                        );
-    
-                        direct_references.extend(lookup_duration.all_references);
-    
-                        let looked_up_duration = match lookup_duration.result {
-                            LookupExpressionResultType::Instances(instances) => {
-                                if instances.len() > 1 {
-                                    return Err(ResolveError::InstancesArrayNotSupported((
-                                        obj_id.to_string(),
-                                        "duration",
-                                    )));
-                                } else if let Some(instance) = instances.get(0) {
-                                    Some(TimeWithReference {
-                                        value: instance.start,
-                                        references: instance.references.clone(),
-                                    })
-                                } else {
-                                    None
-                                }
-                            }
-                            LookupExpressionResultType::TimeRef(time_ref) => Some(time_ref),
-                            LookupExpressionResultType::Null => None,
-                        };
-    
-                        if let Some(duration2) = looked_up_duration {
-                            let duration_val = if let Some(repeating) = &looked_up_repeating2 {
-                                min(repeating.value, duration2.value)
-                            } else {
-                                duration2.value
-                            };
-    
-                            let mut new_events = Vec::new();
-                            for event in &events {
-                                if event.is_start {
-                                    let references = ReferencesBuilder::new()
-                                        .add(&event.references)
-                                        .add(&duration2.references)
-                                        .done();
-    
-                                    new_events.push(EventForInstance {
-                                        time: event.time + duration_val,
-                                        is_start: false,
-                                        id: event.id.clone(),
-                                        references: references,
-                                        caps: vec![],
-                                    })
-                                }
-                            }
-                            events.extend(new_events);
-                        }
+                        events.extend(new_events);
                     }
-    
-                    new_instances.extend(events.to_instances(self, false, false));
                 }
-    
-                if has_parent {
-                    // figure out what parent-instance the instances are tied to, and cap them
-                    let mut capped_instances = Vec::new();
-    
-                    if let Some(parent_instances) = &parent_instances {
-                        for instance in &new_instances {
-                            let referred_parent_instance =
-                                parent_instances.iter().find(|parent_instance| {
-                                    instance.references.contains(&parent_instance.id)
+
+                new_instances.extend(events.to_instances(self, false, false));
+            }
+
+            if has_parent {
+                // figure out what parent-instance the instances are tied to, and cap them
+                let mut capped_instances = Vec::new();
+
+                if let Some(parent_instances) = &parent_instances {
+                    for instance in &new_instances {
+                        let referred_parent_instance =
+                            parent_instances.iter().find(|parent_instance| {
+                                instance.references.contains(&parent_instance.id)
+                            });
+
+                        if let Some(referred_parent_instance) = referred_parent_instance {
+                            // If the child refers to its parent, there should be one specific instance to cap into
+                            let capped_instance =
+                                cap_instance(instance, &vec![referred_parent_instance]);
+
+                            if let Some(mut capped_instance) = capped_instance {
+                                capped_instance.caps.push(Cap {
+                                    id: referred_parent_instance.id.clone(),
+                                    start: referred_parent_instance.start,
+                                    end: referred_parent_instance.end,
                                 });
-    
-                            if let Some(referred_parent_instance) = referred_parent_instance {
-                                // If the child refers to its parent, there should be one specific instance to cap into
+                                capped_instances.push(capped_instance)
+                            }
+                        } else {
+                            // If the child doesn't refer to its parent, it should be capped within all of its parent instances
+                            for parent_instance in parent_instances {
                                 let capped_instance =
-                                    cap_instance(instance, &vec![referred_parent_instance]);
-    
+                                    cap_instance(instance, &vec![&parent_instance]);
+
                                 if let Some(mut capped_instance) = capped_instance {
                                     capped_instance.caps.push(Cap {
-                                        id: referred_parent_instance.id.clone(),
-                                        start: referred_parent_instance.start,
-                                        end: referred_parent_instance.end,
+                                        id: parent_instance.id.clone(),
+                                        start: parent_instance.start,
+                                        end: parent_instance.end,
                                     });
                                     capped_instances.push(capped_instance)
                                 }
-                            } else {
-                                // If the child doesn't refer to its parent, it should be capped within all of its parent instances
-                                for parent_instance in parent_instances {
-                                    let capped_instance =
-                                        cap_instance(instance, &vec![&parent_instance]);
-    
-                                    if let Some(mut capped_instance) = capped_instance {
-                                        capped_instance.caps.push(Cap {
-                                            id: parent_instance.id.clone(),
-                                            start: parent_instance.start,
-                                            end: parent_instance.end,
-                                        });
-                                        capped_instances.push(capped_instance)
-                                    }
-                                }
                             }
                         }
                     }
-    
-                    new_instances = capped_instances;
                 }
-    
-                instances.extend(apply_repeating_instances(
-                    self,
-                    &new_instances,
-                    looked_up_repeating2,
-                    &self.options,
-                ));
+
+                new_instances = capped_instances;
             }
-    
-            // filter out zero-length instances:
-            let filtered_instances = instances
-                .into_iter()
-                .filter(|instance| instance.end.unwrap_or(Time::MAX) > instance.start)
-                .collect();
-    
-            obj.resolved.resolved = true;
-            obj.resolved.resolving = false;
-            obj.resolved.instances = Some(filtered_instances);
-            obj.resolved.directReferences = direct_references;
-    
-            Ok(())
+
+            instances.extend(apply_repeating_instances(
+                self,
+                &new_instances,
+                looked_up_repeating2,
+                &self.options,
+            ));
+        }
+
+        // filter out zero-length instances:
+        let filtered_instances = instances
+            .into_iter()
+            .filter(|instance| instance.end.unwrap_or(Time::MAX) > instance.start)
+            .collect();
+
+        let mut locked_result = obj.resolved.write().unwrap(); // TODO - handle error
+        match *locked_result {
+            TimelineObjectResolveStatus::Pending => {
+                // Resolving hasn't been started, so something has messed up
+                Err(ResolveError::ResolvedWhilePending(obj.object_id.clone()))
+            }
+            TimelineObjectResolveStatus::Complete(_) => {
+                // Resolving has already been completed, so something has messed up
+                Err(ResolveError::ResolvedWhileResolvec(obj.object_id.clone()))
+            }
+            TimelineObjectResolveStatus::InProgress(progress) => {
+                *locked_result = TimelineObjectResolveStatus::Complete(TimelineObjectResolved {
+                    is_self_referencing: progress.is_self_referencing,
+
+                    instances: filtered_instances,
+                    directReferences: direct_references,
+                });
+
+                Ok(())
+            }
         }
     }
 }

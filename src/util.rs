@@ -1,8 +1,8 @@
 use crate::api::{ResolverContext, DEFAULT_LIMIT_COUNT};
+use crate::caps::{Cap, CapsBuilder};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::LookupExpressionResultType;
-use crate::caps::{CapsBuilder, Cap};
 use crate::references::ReferencesBuilder;
 use crate::resolver::TimeWithReference;
 use crate::state::ResolveOptions;

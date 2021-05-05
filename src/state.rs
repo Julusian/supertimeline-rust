@@ -1,10 +1,13 @@
 use crate::api::ResolvedTimeline;
+use crate::instance::TimelineObjectResolveInfo;
+use crate::instance::TimelineObjectResolveStatus;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
     ResolvedTimelineObjectInstanceKeyframe, TimelineEnable, TimelineObjectResolved,
 };
 use crate::util::Time;
 use std::collections::HashMap;
+use std::sync::RwLock;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum EventType {
@@ -39,7 +42,21 @@ pub struct ResolvedTimelineObject {
     pub object_id: String,
     pub object_enable: Vec<TimelineEnable>,
     // pub object: Box<dyn IsTimelineObject>,
-    pub resolved: TimelineObjectResolved,
+    pub resolved: RwLock<TimelineObjectResolveStatus>,
+    pub info: TimelineObjectResolveInfo,
+}
+impl ResolvedTimelineObject {
+    pub fn is_self_referencing(&self) -> bool {
+        let mut locked = self.resolved.read().unwrap(); // TODO - handle error
+        match *locked {
+            TimelineObjectResolveStatus::Pending => {
+                // Clearly not
+                false
+            }
+            TimelineObjectResolveStatus::InProgress(progress) => progress.is_self_referencing,
+            TimelineObjectResolveStatus::Complete(res) => res.is_self_referencing,
+        }
+    }
 }
 
 pub type AllStates = HashMap<String, HashMap<Time, Vec<ResolvedTimelineObjectEntry>>>;
@@ -110,7 +127,7 @@ fn get_state_at_time_for_layer(
                             }
                             ResolvedTimelineObjectEntry::Keyframe(keyframe) => {
                                 if let Some(ref mut state) = &mut best_state {
-                                    if let Some(parent_id) = &keyframe.instance.resolved.parentId {
+                                    if let Some(parent_id) = &keyframe.instance.info.parentId {
                                         if parent_id.eq(&state.instance.id) {
                                             if keyframe.keyframeEndTime.unwrap_or(Time::MAX)
                                                 > request_time
