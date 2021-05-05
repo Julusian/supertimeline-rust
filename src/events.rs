@@ -76,7 +76,7 @@ impl IsEvent for EventForInstance {
 
 pub trait EventForInstanceExt {
     fn to_instances(
-        &mut self,
+        self,
         ctx: &dyn ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
@@ -84,27 +84,28 @@ pub trait EventForInstanceExt {
 }
 impl EventForInstanceExt for Vec<EventForInstance> {
     fn to_instances(
-        &mut self,
+        mut self,
         ctx: &dyn ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance> {
         self.sort();
 
+        // let mut return_instances_map = HashMap::new();
         let mut return_instances: Vec<TimelineObjectInstance> = Vec::new();
 
         let mut active_instances = HashMap::new();
-        let mut active_instance_id: Option<&String> = None;
+        let mut active_instance_id: Option<String> = None;
         let mut previous_active = false;
 
-        for event in self {
-            let event_id = event.id().to_string();
+        for event in self.iter() {
+            let event_id = event.id().clone();
 
             let last_instance = return_instances.last_mut();
 
             // Track the event's change
             if event.is_start {
-                active_instances.insert(&event_id, &event);
+                active_instances.insert(event_id.clone(), event);
             } else {
                 active_instances.remove(&event_id);
             }
@@ -126,6 +127,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         && event.is_start
                         && last_instance.end.is_none()
                         && !active_instance_id
+                            .as_ref()
                             .and_then(|aiid| Some(aiid.eq(&event_id)))
                             .unwrap_or(false)
                     {
@@ -135,7 +137,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                             id: ctx.get_id(),
                             start: event.time,
                             end: None,
-                            references: event.references,
+                            references: event.references.clone(),
 
                             isFirst: false,
                             caps: Vec::new(),
@@ -143,10 +145,11 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                             originalEnd: None,
                             fromInstanceId: None,
                         });
-                        active_instance_id = Some(&event_id);
+                        active_instance_id = Some(event_id);
                     } else if !allow_merge
                         && !event.is_start
                         && active_instance_id
+                            .as_ref()
                             .and_then(|aiid| Some(aiid.eq(&event_id)))
                             .unwrap_or(false)
                     {
@@ -171,7 +174,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                                 originalEnd: None,
                                 fromInstanceId: None,
                             });
-                            active_instance_id = Some(latest_instance.0);
+                            active_instance_id = Some(latest_instance.0.clone());
                         }
                     } else if allow_merge
                         && !allow_zero_gaps
@@ -180,32 +183,32 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         // The previously running ended just now
                         // resume previous instance:
                         last_instance.end = None;
+                        add_caps_to_resuming(last_instance, &event.caps);
                         last_instance.references = ReferencesBuilder::new()
                             .add(&last_instance.references)
-                            .add2(event.references)
+                            .add(&event.references)
                             .done();
-                        add_caps_to_resuming(last_instance, &event.caps);
                     } else if let Some(_end) = last_instance.end {
                         // There is no previously running instance
                         // Start a new instance:
                         return_instances.push(TimelineObjectInstance {
-                            id: event_id.to_string(),
+                            id: event_id.clone(),
                             start: event.time,
                             end: None,
-                            references: event.references,
-                            caps: event.caps,
+                            references: event.references.clone(),
+                            caps: event.caps.clone(),
 
                             isFirst: false,
                             originalStart: None,
                             originalEnd: None,
                             fromInstanceId: None,
                         });
-                        active_instance_id = Some(&event_id);
+                        active_instance_id = Some(event_id);
                     } else {
                         // There is already a running instance
                         last_instance.references = ReferencesBuilder::new()
                             .add(&last_instance.references)
-                            .add2(event.references)
+                            .add(&event.references)
                             .done();
                         add_caps_to_resuming(last_instance, &event.caps);
                     }
@@ -213,18 +216,18 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                     // There is no previously running instance
                     // Start a new instance:
                     return_instances.push(TimelineObjectInstance {
-                        id: event_id.to_string(),
+                        id: event_id.clone(),
                         start: event.time,
                         end: None,
-                        references: event.references,
-                        caps: event.caps,
+                        references: event.references.clone(),
+                        caps: event.caps.clone(),
 
                         isFirst: false,
                         originalStart: None,
                         originalEnd: None,
                         fromInstanceId: None,
                     });
-                    active_instance_id = Some(&event_id);
+                    active_instance_id = Some(event_id);
                 }
             }
         }

@@ -190,10 +190,10 @@ pub fn join_caps(a: &Vec<Cap>, b: &Vec<Cap>) -> Vec<Cap> {
 //     res
 // }
 
-fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<TimelineObjectInstance>> {
+fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<Vec<&TimelineObjectInstance>> {
     match a {
         LookupExpressionResultType::Null => None,
-        LookupExpressionResultType::TimeRef(time_ref) => Some(&vec![TimelineObjectInstance {
+        LookupExpressionResultType::TimeRef(time_ref) => Some(vec![&TimelineObjectInstance {
             id: "".to_string(),
             start: time_ref.value,
             end: Some(time_ref.value),
@@ -205,7 +205,7 @@ fn get_as_array_to_operate(a: &LookupExpressionResultType) -> Option<&Vec<Timeli
             caps: vec![],
             fromInstanceId: None,
         }]),
-        LookupExpressionResultType::Instances(instances) => Some(instances),
+        LookupExpressionResultType::Instances(instances) => Some(instances.iter().collect()),
     }
 }
 
@@ -278,35 +278,35 @@ where
                             })
                         })
                     } else {
-                        operate(
-                            a.end.and_then(|end| {
-                                Some(&TimeWithReference {
-                                    value: end,
-                                    references: ReferencesBuilder::new()
-                                        .add(&a.references)
-                                        .add_id(&a.id)
-                                        .done(),
-                                })
-                            }),
-                            b.end.and_then(|end| {
-                                Some(&TimeWithReference {
-                                    value: end,
-                                    references: ReferencesBuilder::new()
-                                        .add(&b.references)
-                                        .add_id(&b.id)
-                                        .done(),
-                                })
-                            }),
-                        )
+                        let a_end = a.end.and_then(|end| {
+                            Some(TimeWithReference {
+                                value: end,
+                                references: ReferencesBuilder::new()
+                                    .add(&a.references)
+                                    .add_id(&a.id)
+                                    .done(),
+                            })
+                        });
+                        let b_end = b.end.and_then(|end| {
+                            Some(TimeWithReference {
+                                value: end,
+                                references: ReferencesBuilder::new()
+                                    .add(&b.references)
+                                    .add_id(&b.id)
+                                    .done(),
+                            })
+                        });
+
+                        operate(a_end.as_ref(), b_end.as_ref())
                     };
 
                     result.push(TimelineObjectInstance {
                         id: ctx.get_id(),
                         start: start.value,
-                        end: end.and_then(|e| Some(e.value)),
+                        end: end.as_ref().and_then(|e| Some(e.value)),
                         references: ReferencesBuilder::new()
                             .add(&start.references)
-                            .add_some(end.and_then(|e| Some(&e.references)))
+                            .add_some2(end.and_then(|e| Some(e.references)))
                             .done(),
                         caps: join_caps(&a.caps, &b.caps),
 
@@ -361,7 +361,7 @@ pub fn apply_repeating_instances(
                 .find(|cap| instance.references.contains(&cap.id));
 
             let limit = options.limitCount.unwrap_or(DEFAULT_LIMIT_COUNT);
-            for i in 0..limit {
+            for _i in 0..limit {
                 if let Some(limit_time) = options.limitTime {
                     if start_time >= limit_time {
                         break;

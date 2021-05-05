@@ -10,7 +10,7 @@ lazy_static::lazy_static! {
     };
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ExpressionOperator {
     And,
     Or,
@@ -94,7 +94,7 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
             let new_expr = interpret_expression_string(str)?;
             match &new_expr {
                 // recurse only if it is not a string, to avoid an infinite loop
-                Expression::String(str) => Ok(new_expr),
+                Expression::String(_str) => Ok(new_expr),
                 _ => simplify_expression(&new_expr),
             }
         }

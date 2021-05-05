@@ -172,7 +172,7 @@ fn lookup_expression_str(
             // Exclude any self-referencing objects:
             referenced_objs = referenced_objs
                 .into_iter()
-                .filter(|&ref_obj| !ref_obj.resolved.is_self_referencing)
+                .filter(|ref_obj| !ref_obj.resolved.is_self_referencing)
                 .collect::<Vec<_>>();
         }
 
@@ -330,7 +330,7 @@ fn lookup_expression_obj(
             let calc_result: fn(a: bool, b: bool) -> bool = match &expr.o {
                 ExpressionOperator::And => |a, b| a && b,
                 ExpressionOperator::Or => |a, b| a || b,
-                _ => |a, b| false,
+                _ => |_a, _b| false,
             };
 
             let mut result_value = calc_result(left_value, right_value);
@@ -343,7 +343,7 @@ fn lookup_expression_obj(
             let mut right_instance = None;
 
             let mut instances = Vec::new();
-            let push_instance =
+            let mut push_instance =
                 |time: Time, value: bool, references: HashSet<String>, caps: Vec<Cap>| {
                     if value {
                         instances.push(TimelineObjectInstance {
@@ -422,7 +422,7 @@ fn lookup_expression_obj(
                             a.value % b.value, // TODO - can this panic?
                         )
                     },
-                    _ => |a, b| None,
+                    _ => |_a, _b| None,
                 };
 
             let operator2 = |a: Option<&TimeWithReference>,

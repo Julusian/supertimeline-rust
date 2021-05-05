@@ -27,6 +27,13 @@ impl ReferencesBuilder {
         self
     }
 
+    pub fn add_some2(mut self, other: Option<HashSet<String>>) -> ReferencesBuilder {
+        if let Some(other) = other {
+            self.value.extend(other.into_iter());
+        }
+        self
+    }
+
     pub fn add_id(mut self, id: &String) -> ReferencesBuilder {
         self.value.insert(id.clone());
         self
