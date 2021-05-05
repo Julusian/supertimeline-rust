@@ -149,7 +149,7 @@ fn lookup_expression_str(
         for ref_obj_id in &expression_references.object_ids_to_reference {
             if ref_obj_id.eq(&obj.object_id) {
                 let mut locked = obj.resolved.write().unwrap(); // TODO - handle error
-                match *locked {
+                match &mut *locked {
                     TimelineObjectResolveStatus::Pending => {
                         // This is fine, we will resolve it shortly
                     }
@@ -193,25 +193,33 @@ fn lookup_expression_str(
                 let mut instance_durations = Vec::new();
                 for ref_obj in referenced_objs {
                     ctx.resolve_object(ref_obj);
-                    if ref_obj.resolved.resolved {
-                        if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
-                        {
-                            // If the querying object is self-referencing, exclude any other self-referencing objects,
-                            // ignore the object
-                        } else {
-                            if let Some(first_instance) =
-                                ref_obj.resolved.instances.as_ref().and_then(|i| i.first())
-                            {
-                                if let Some(end) = first_instance.end {
-                                    let duration = end - first_instance.start;
-                                    let mut references = HashSet::new();
-                                    references.extend(first_instance.references.iter().cloned());
-                                    references.insert(ref_obj.object_id.clone());
+                    let obj_is_self_referencing = obj.is_self_referencing();
+                    let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
+                    match &*locked_ref {
+                        TimelineObjectResolveStatus::Pending => {
+                            // Nothing to do
+                        }
+                        TimelineObjectResolveStatus::InProgress(_) => {
+                            // Nothing to do
+                        }
+                        TimelineObjectResolveStatus::Complete(res) => {
+                            if obj_is_self_referencing && res.is_self_referencing {
+                                // If the querying object is self-referencing, exclude any other self-referencing objects,
+                                // ignore the object
+                            } else {
+                                if let Some(first_instance) = res.instances.first() {
+                                    if let Some(end) = first_instance.end {
+                                        let duration = end - first_instance.start;
+                                        let mut references = HashSet::new();
+                                        references
+                                            .extend(first_instance.references.iter().cloned());
+                                        references.insert(ref_obj.object_id.clone());
 
-                                    instance_durations.push(TimeWithReference {
-                                        value: duration,
-                                        references,
-                                    })
+                                        instance_durations.push(TimeWithReference {
+                                            value: duration,
+                                            references,
+                                        })
+                                    }
                                 }
                             }
                         }
@@ -243,13 +251,22 @@ fn lookup_expression_str(
 
                 for ref_obj in referenced_objs {
                     ctx.resolve_object(ref_obj);
-                    if ref_obj.resolved.resolved {
-                        if obj.resolved.is_self_referencing && ref_obj.resolved.is_self_referencing
-                        {
-                            // If the querying object is self-referencing, exclude any other self-referencing objects,
-                            // ignore the object
-                        } else if let Some(resolved_instances) = &ref_obj.resolved.instances {
-                            return_instances.extend(resolved_instances.iter().cloned());
+                    let obj_is_self_referencing = obj.is_self_referencing();
+                    let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
+                    match &*locked_ref {
+                        TimelineObjectResolveStatus::Pending => {
+                            // Nothing to do
+                        }
+                        TimelineObjectResolveStatus::InProgress(_) => {
+                            // Nothing to do
+                        }
+                        TimelineObjectResolveStatus::Complete(res) => {
+                            if obj_is_self_referencing && res.is_self_referencing {
+                                // If the querying object is self-referencing, exclude any other self-referencing objects,
+                                // ignore the object
+                            } else {
+                                return_instances.extend(res.instances.iter().cloned());
+                            }
                         }
                     }
                 }

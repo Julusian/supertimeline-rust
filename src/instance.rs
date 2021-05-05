@@ -30,6 +30,18 @@ pub enum TimelineObjectResolveStatus {
     InProgress(TimelineObjectResolvedWip),
     Complete(TimelineObjectResolved),
 }
+impl TimelineObjectResolveStatus {
+    pub fn is_self_referencing(&self) -> bool {
+        match self {
+            TimelineObjectResolveStatus::Pending => {
+                // Clearly not
+                false
+            }
+            TimelineObjectResolveStatus::InProgress(progress) => progress.is_self_referencing,
+            TimelineObjectResolveStatus::Complete(res) => res.is_self_referencing,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectResolveInfo {
@@ -59,7 +71,7 @@ pub struct TimelineObjectResolved {
     pub is_self_referencing: bool,
 
     /** Instances of the object on the timeline */
-    pub instances: Option<Vec<TimelineObjectInstance>>,
+    pub instances: Vec<TimelineObjectInstance>,
     /** Ids of all other objects that directly affects this object (ie through direct reference, classes, etc) */
     pub directReferences: HashSet<String>,
 }

@@ -3,7 +3,7 @@ use crate::instance::TimelineObjectResolveInfo;
 use crate::instance::TimelineObjectResolveStatus;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
-    ResolvedTimelineObjectInstanceKeyframe, TimelineEnable, TimelineObjectResolved,
+    ResolvedTimelineObjectInstanceKeyframe, TimelineEnable,
 };
 use crate::util::Time;
 use std::collections::HashMap;
@@ -47,15 +47,8 @@ pub struct ResolvedTimelineObject {
 }
 impl ResolvedTimelineObject {
     pub fn is_self_referencing(&self) -> bool {
-        let mut locked = self.resolved.read().unwrap(); // TODO - handle error
-        match *locked {
-            TimelineObjectResolveStatus::Pending => {
-                // Clearly not
-                false
-            }
-            TimelineObjectResolveStatus::InProgress(progress) => progress.is_self_referencing,
-            TimelineObjectResolveStatus::Complete(res) => res.is_self_referencing,
-        }
+        let locked = self.resolved.read().unwrap(); // TODO - handle error
+        locked.is_self_referencing()
     }
 }
 

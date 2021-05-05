@@ -205,7 +205,7 @@ impl ResolverContext for ResolvedTimeline {
     fn resolve_object(&self, obj: &ResolvedTimelineObject) -> Result<(), ResolveError> {
         {
             let mut current_status = obj.resolved.write().unwrap(); // TODO - handle error
-            match *current_status {
+            match &mut *current_status {
                 TimelineObjectResolveStatus::Complete(_) => {
                     // Already resolved
                     return Ok(());
@@ -539,7 +539,7 @@ impl ResolverContext for ResolvedTimeline {
             .collect();
 
         let mut locked_result = obj.resolved.write().unwrap(); // TODO - handle error
-        match *locked_result {
+        match &*locked_result {
             TimelineObjectResolveStatus::Pending => {
                 // Resolving hasn't been started, so something has messed up
                 Err(ResolveError::ResolvedWhilePending(obj.object_id.clone()))
