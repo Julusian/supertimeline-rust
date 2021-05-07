@@ -39,9 +39,9 @@ pub struct ResolveOptions {
     pub limit_count: Option<usize>,
     /** Limits the repeating objects to a time in the future */
     pub limit_time: Option<Time>,
-    /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
-    pub resolve_instance_collisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
-                                           // cache?: ResolverCache
+    // /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
+    // pub resolve_instance_collisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
+    //                                        // cache?: ResolverCache
 }
 
 pub struct ResolvedTimelineObject {
@@ -167,8 +167,6 @@ pub enum ResolvedStatesError {
 }
 
 struct PointInTime {
-    // object_id: String,
-    // instance_id: String,
     /** if the instance turns on or off at this point */
     enable: bool,
 
@@ -514,6 +512,33 @@ pub fn resolve_states(
                                     info: current_on_top_of_layer.info.clone(),
                                     instances: Vec::new(),
                                 };
+
+                                // TODO - this?
+                                // if let Some(classes) = new_obj.info.classes {
+                                //     for class in classes {
+                                //         if let Some(existing) = timeline.classes.get_mut(class) {
+                                //             existing.push(obj_id.clone());
+                                //         } else {
+                                //             timeline
+                                //                 .classes
+                                //                 .insert(class.to_string(), vec![obj_id.clone()]);
+                                //         }
+                                //     }
+                                // }
+
+                                let obj_layer = &new_obj.info.layer;
+                                if obj_layer.len() > 0 {
+                                    if let Some(existing) =
+                                        resolved_states.layers.get_mut(obj_layer)
+                                    {
+                                        existing.push(new_obj.info.id.clone());
+                                    } else {
+                                        resolved_states.layers.insert(
+                                            obj_layer.to_string(),
+                                            vec![new_obj.info.id.clone()],
+                                        );
+                                    }
+                                }
 
                                 resolved_states
                                     .objects

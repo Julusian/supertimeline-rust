@@ -162,7 +162,7 @@ fn ensure_number_polarity(prev_op: Option<ExpressionOperator>, val: i64) -> Opti
         match op {
             ExpressionOperator::Add => Some(val),
             ExpressionOperator::Subtract => Some(-val),
-            _ => None
+            _ => None,
         }
     } else {
         Some(val)
@@ -206,8 +206,8 @@ fn interpret_phrase(
         match phrase.last().unwrap() {
             WrappedWords::Single(word) => {
                 if let Ok(num) = word.parse::<i64>() {
-                    let parsed = ensure_number_polarity(prev_op, num)
-                        .ok_or(ExpressionError::Invalid)?;
+                    let parsed =
+                        ensure_number_polarity(prev_op, num).ok_or(ExpressionError::Invalid)?;
                     Ok(Expression::Number(parsed))
                 } else {
                     Ok(Expression::String(word.to_string()))

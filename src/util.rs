@@ -153,51 +153,6 @@ pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Ca
         .done();
 }
 
-// pub fn join_caps<T1, T2>(a: T1, b: T2) -> Vec<Cap>
-// where
-//     T1: Iterator<Item = Cap>,
-//     T2: Iterator<Item = Cap>,
-// {
-//     let mut cap_map = HashMap::new();
-
-//     for cap in a {
-//         cap_map.insert(&cap.id, cap);
-//     }
-//     for cap in b {
-//         cap_map.insert(&cap.id, cap);
-//     }
-
-//     cap_map.into_iter().map(|e| e.1).collect()
-// }
-
-// pub fn clone_hashset_with_value<T: Clone + Eq + Hash>(a: &HashSet<T>, c: &T) -> HashSet<T> {
-//     let mut res = HashSet::new();
-//     res.extend(a.iter().cloned());
-//     res.insert(c.clone());
-//     res
-// }
-//
-// pub fn join_maybe_hashset<T: Clone + Eq + Hash>(
-//     a: Option<&HashSet<T>>,
-//     b: Option<&HashSet<T>>,
-// ) -> HashSet<T> {
-//     let mut res = HashSet::new();
-//     if let Some(a) = a {
-//         res.extend(a.iter().cloned());
-//     }
-//     if let Some(b) = b {
-//         res.extend(b.iter().cloned());
-//     }
-//     res
-// }
-//
-// pub fn join_hashset<T: Clone + Eq + Hash>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
-//     let mut res = HashSet::new();
-//     res.extend(a.iter().cloned());
-//     res.extend(b.iter().cloned());
-//     res
-// }
-
 fn get_converted_array_to_operate(
     a: &LookupExpressionResultType,
 ) -> Option<Vec<TimelineObjectInstance>> {
