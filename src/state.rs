@@ -14,8 +14,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::RwLock;
+use std::ops::Deref;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, PartialOrd)]
 pub enum EventType {
     Start = 0,
     End = 1,
@@ -133,7 +134,7 @@ fn get_state_at_time_for_layer(
 
         for (time, current_state_instances) in layer_contents {
             if *time <= request_time {
-                let mut res = current_state_instances.clone();
+                let mut res = current_state_instances.deref().clone();
                 res.keyframes.retain(|keyframe| {
                     if let Some(parent_id) = &keyframe.instance.info.parent_id {
                         if parent_id.eq(&res.instance.instance.id) {
@@ -235,7 +236,7 @@ pub fn resolve_states(
             }
         };
 
-    for obj in resolved_objects {
+    for obj in &resolved_objects {
         if !obj.info.disabled && obj.info.layer.len() > 0 && !obj.info.is_keyframe {
             let locked = obj.resolved.read().unwrap(); // TODO - handle error
             match &*locked {
@@ -290,7 +291,7 @@ pub fn resolve_states(
     }
 
     // Also add keyframes to pointsInTime:
-    for obj in resolved_objects {
+    for obj in &resolved_objects {
         if !obj.info.disabled
             && obj.info.layer.len() > 0
             && obj.info.is_keyframe
@@ -328,7 +329,7 @@ pub fn resolve_states(
     let mut active_keyframes = HashMap::new();
     let mut active_keyframes_checked = HashSet::new();
 
-    let event_object_times = HashMap::new();
+    let mut event_object_times = HashMap::new();
 
     let mut resolved_states = ResolvedStates {
         // timeline: (),
@@ -415,7 +416,7 @@ pub fn resolve_states(
                             to_be_enabled
                         };
 
-                        let mut layer_aspiring_instances = aspiring_instances
+                        let layer_aspiring_instances = aspiring_instances
                             .entry(obj.info.layer.clone())
                             .or_insert(Vec::new());
 
@@ -523,7 +524,7 @@ pub fn resolve_states(
                                 });
 
                             let new_instance = {
-                                let mut new_instance = current_on_top_of_layer.instance.clone();
+                                let mut new_instance = current_on_top_of_layer.instance.deref().clone();
                                 // We're setting new start & end times so they match up with the state:
                                 new_instance.start = time;
                                 new_instance.end = None;
@@ -550,7 +551,7 @@ pub fn resolve_states(
                                     }
                                 }
 
-                                new_instance
+                                Rc::new(new_instance)
                             };
                             new_obj.instances.push(new_instance.clone());
 
@@ -602,7 +603,10 @@ pub fn resolve_states(
                         // Add keyframe to resolvedStates.objects:
                         resolved_states
                             .objects
-                            .insert(obj.info.id.clone(), obj.clone());
+                            .insert(obj.info.id.clone(), ResolvedTimelineObjectInstances{
+                                info: obj.info.clone(),
+                                instances: vec![obj.instance.clone()],
+                            });
 
                         if to_be_enabled {
                             active_keyframes.insert(obj.info.id.clone(), o.obj.clone());
@@ -741,7 +745,7 @@ fn get_times_from_parent(
             let locked = parent_obj.resolved.read().unwrap(); // TODO - handle error
             match &*locked {
                 TimelineObjectResolveStatus::Complete(res) => {
-                    for instance in res.instances {
+                    for instance in &res.instances {
                         times.push(TimeEvent {
                             time: instance.start,
                             enable: true,
@@ -771,7 +775,7 @@ fn make_resolved_obj(
 ) -> Rc<ResolvedTimelineObjectInstance> {
     Rc::new(ResolvedTimelineObjectInstance {
         info: obj.info.clone(),
-        instance: instance.clone(),
+        instance: Rc::new(instance.clone()),
     })
 }
 
@@ -781,7 +785,7 @@ fn set_state_at_time(
     time: Time,
     instance: Option<&Rc<ResolvedTimelineObjectInstance>>,
 ) {
-    let mut layer_states = states.entry(layer.clone()).or_default();
+    let layer_states = states.entry(layer.clone()).or_default();
     if let Some(instance) = instance {
         layer_states.insert(
             time,
@@ -801,7 +805,7 @@ fn add_keyframe_at_time(
     time: Time,
     instance: &Rc<ResolvedTimelineObjectInstanceKeyframe>,
 ) {
-    let mut layer_states = states.entry(layer.clone()).or_default();
+    let layer_states = states.entry(layer.clone()).or_default();
 
     // TODO - this isnt as perfect as before, as it would create the entry with just the kf
     if let Some(time_state) = layer_states.get_mut(&time) {
