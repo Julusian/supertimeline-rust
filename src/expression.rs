@@ -207,7 +207,7 @@ fn interpret_phrase(
             WrappedWords::Single(word) => {
                 if let Ok(num) = word.parse::<i64>() {
                     let parsed = ensure_number_polarity(prev_op, num)
-                        .ok_or(ExpressionError::InvalidOperator2)?;
+                        .ok_or(ExpressionError::Invalid)?;
                     Ok(Expression::Number(parsed))
                 } else {
                     Ok(Expression::String(word.to_string()))
@@ -215,7 +215,7 @@ fn interpret_phrase(
             }
             WrappedWords::Group(grp) => {
                 if prev_op.is_some() {
-                    Err(ExpressionError::InvalidOperator2)
+                    Err(ExpressionError::Invalid)
                 } else {
                     interpret_phrase(grp, None)
                 }
@@ -263,11 +263,11 @@ fn interpret_phrase(
                     let r2 = interpret_phrase(&phrase[1..], None)?;
                     Ok(Expression::Invert(Box::new(r2)))
                 } else {
-                    let new_op = match_operator(raw_op).ok_or(ExpressionError::InvalidOperator2)?;
+                    let new_op = match_operator(raw_op).ok_or(ExpressionError::InvalidOperator)?;
 
                     if op_index == 0 {
                         if prev_op.is_some() {
-                            Err(ExpressionError::InvalidOperator2)
+                            Err(ExpressionError::Invalid)
                         } else {
                             interpret_phrase(&phrase[1..], Some(new_op))
                         }
@@ -318,8 +318,7 @@ pub enum ExpressionError {
     MismatchedParenthesis,
     Invalid,
     MissingOperator,
-    InvalidOperator(String),
-    InvalidOperator2,
+    InvalidOperator,
     Test(Option<ExpressionOperator>),
 }
 
