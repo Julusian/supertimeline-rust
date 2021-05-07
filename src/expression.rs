@@ -153,7 +153,7 @@ pub fn interpret_expression_string(expression_str: &str) -> Result<Expression, E
     }
 
     let wrapped = wrap_expression(words)?;
-    interpret_words(wrapped)
+    interpret_phrase(wrapped)
 }
 
 fn interpret_word(
@@ -190,7 +190,7 @@ fn interpret_word(
                 Ok(Expression::String(word.to_string()))
             }
         }
-        WrappedWords::Group(grp) => interpret_words(grp),
+        WrappedWords::Group(grp) => interpret_phrase(grp),
     };
 
     if invert {
@@ -255,31 +255,44 @@ fn ensure_number_polarity(phrase: &mut Vec<WrappedWords>, val: i64) -> i64 {
 }
 
 fn match_operator(str: &str) -> Option<ExpressionOperator> {
-    if str == "&" {
+    if str == "+" {
         Some(ExpressionOperator::Add)
+    } else if str == "-" {
+        Some(ExpressionOperator::Subtract)
+    } else if str == "*" {
+        Some(ExpressionOperator::Multiply)
+    } else if str == "/" {
+        Some(ExpressionOperator::Divide)
+    } else if str == "%" {
+        Some(ExpressionOperator::Remainder)
+    } else if str == "&" {
+        Some(ExpressionOperator::And)
+    } else if str == "|" {
+        Some(ExpressionOperator::Or)
     } else {
         None
     }
 }
 
-fn interpret_words(mut phrase: Vec<WrappedWords>) -> Result<Expression, ExpressionError> {
+fn interpret_phrase(mut phrase: Vec<WrappedWords>) -> Result<Expression, ExpressionError> {
     if let Some(last_word) = phrase.pop() {
         let mut current_expression = interpret_word(&mut phrase, last_word)?;
 
         while phrase.len() > 0 {
             if let Some(operator) = phrase.pop() {
                 if let WrappedWords::Single(op) = operator {
-                    if let Some(op2) = match_operator(op) {
-                        // Catch any remaining negations
-                        if op == "!" {
-                            current_expression = Expression::Invert(Box::new(current_expression));
-                            continue;
-                        }
+                    // Catch any remaining negations
+                    if op == "!" {
+                        current_expression = Expression::Invert(Box::new(current_expression));
+                        continue;
+                    }
 
-                        let left = phrase
-                            .pop()
-                            .ok_or(ExpressionError::Invalid)
-                            .and_then(|x| interpret_word(&mut phrase, x))?;
+                    let left = phrase
+                        .pop()
+                        .ok_or(ExpressionError::Invalid)
+                        .and_then(|x| interpret_word(&mut phrase, x))?;
+
+                    if let Some(op2) = match_operator(op) {
                         current_expression = ExpressionObj {
                             l: left,
                             o: op2,
@@ -287,7 +300,7 @@ fn interpret_words(mut phrase: Vec<WrappedWords>) -> Result<Expression, Expressi
                         }
                         .wrap();
                     } else {
-                        return Err(ExpressionError::InvalidOperator);
+                        return Err(ExpressionError::InvalidOperator(op.to_string()));
                     }
                 } else {
                     return Err(ExpressionError::MissingOperator);
@@ -312,7 +325,7 @@ pub enum ExpressionError {
     MismatchedParenthesis,
     Invalid,
     MissingOperator,
-    InvalidOperator,
+    InvalidOperator(String),
 }
 
 fn wrap_expression(words: Vec<&str>) -> Result<Vec<WrappedWords>, ExpressionError> {
