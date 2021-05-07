@@ -54,16 +54,9 @@ impl Display for Expression {
     }
 }
 
-// pub struct ParsedExpression {
-//     pub l: Box<ParsedExpression>,
-//     pub o: ExpressionOperator,
-//     pub r: Box<ParsedExpression>,
-// }
-
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionObj {
     pub l: Expression,
-    // pub o: String,
     pub o: ExpressionOperator,
     pub r: Expression,
 }
