@@ -53,7 +53,7 @@ fn add_object_to_resolved_timeline(
     obj: ResolvedTimelineObject,
     raw_obj: Option<&Box<dyn IsTimelineObject>>,
 ) {
-    let obj_id = obj.object_id.to_string();
+    let obj_id = obj.info.id.to_string();
 
     if let Some(raw_obj) = raw_obj {
         if let Some(classes) = raw_obj.classes() {
@@ -94,13 +94,14 @@ fn add_object_to_timeline(
     // if (resolvedTimeline.objects[obj.id]) throw Error(`All timelineObjects must be unique! (duplicate: "${obj.id}")`)
 
     let resolved_obj = ResolvedTimelineObject {
-        object_id: obj.id().to_string(),
-        object_enable: obj.enable().clone(),
-        object_priority: obj.priority(),
-        object_disabled: obj.disabled(),
-        object_layer: obj.layer().to_string(),
         resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
         info: TimelineObjectResolveInfo {
+            id: obj.id().to_string(),
+            enable: obj.enable().clone(),
+            priority: obj.priority(),
+            disabled: obj.disabled(),
+            layer: obj.layer().to_string(),
+
             depth: depth,
             parent_id: parent_id.cloned(),
             is_keyframe: false,
@@ -110,7 +111,7 @@ fn add_object_to_timeline(
     // track child objects
     if let Some(children) = obj.children() {
         for child in children {
-            add_object_to_timeline(timeline, child, depth + 1, Some(&resolved_obj.object_id));
+            add_object_to_timeline(timeline, child, depth + 1, Some(&resolved_obj.info.id));
         }
     }
 
@@ -118,14 +119,16 @@ fn add_object_to_timeline(
     if let Some(keyframes) = obj.keyframes() {
         for keyframe in keyframes {
             let resolved_obj = ResolvedTimelineObject {
-                object_id: keyframe.id().to_string(),
-                object_enable: keyframe.enable().clone(),
-                object_priority: 0, //keyframe.priority(),
-                object_disabled: keyframe.disabled(),
                 resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
                 info: TimelineObjectResolveInfo {
+                    id: keyframe.id().to_string(),
+                    enable: keyframe.enable().clone(),
+                    priority: 0,           // not supported
+                    layer: "".to_string(), // not supported
+                    disabled: keyframe.disabled(),
+
                     depth: depth + 1,
-                    parent_id: Some(resolved_obj.object_id.clone()),
+                    parent_id: Some(resolved_obj.info.id.clone()),
                     is_keyframe: true,
                 },
             };
@@ -220,7 +223,7 @@ impl ResolverContext for ResolvedTimeline {
                     // TODO - this will need to track callers/something when threading
                     progress.is_self_referencing = true;
 
-                    return Err(ResolveError::CircularDependency(obj.object_id.to_string()));
+                    return Err(ResolveError::CircularDependency(obj.info.id.to_string()));
                 }
                 TimelineObjectResolveStatus::Pending => {
                     // Mark it as in progress, and release the lock
@@ -237,8 +240,8 @@ impl ResolverContext for ResolvedTimeline {
 
         let mut instances = Vec::new();
 
-        let obj_id = &obj.object_id;
-        for enable in &obj.object_enable {
+        let obj_id = &obj.info.id;
+        for enable in &obj.info.enable {
             let repeating_expr = if let Some(expr) = &enable.repeating {
                 match interpret_expression(expr) {
                     Ok(val) => val,
@@ -547,11 +550,11 @@ impl ResolverContext for ResolvedTimeline {
         match &*locked_result {
             TimelineObjectResolveStatus::Pending => {
                 // Resolving hasn't been started, so something has messed up
-                Err(ResolveError::ResolvedWhilePending(obj.object_id.clone()))
+                Err(ResolveError::ResolvedWhilePending(obj.info.id.clone()))
             }
             TimelineObjectResolveStatus::Complete(_) => {
                 // Resolving has already been completed, so something has messed up
-                Err(ResolveError::ResolvedWhileResolvec(obj.object_id.clone()))
+                Err(ResolveError::ResolvedWhileResolvec(obj.info.id.clone()))
             }
             TimelineObjectResolveStatus::InProgress(progress) => {
                 *locked_result = TimelineObjectResolveStatus::Complete(TimelineObjectResolved {

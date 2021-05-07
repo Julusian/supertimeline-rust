@@ -1,14 +1,13 @@
 use crate::caps::Cap;
 use crate::expression::Expression;
-use crate::state::ResolvedTimelineObject;
 use crate::util::Time;
 use std::collections::HashSet;
 use std::rc::Rc;
 
 #[derive(Clone)]
-pub enum ResolvedTimelineObjectEntry {
-    Instance(ResolvedTimelineObjectInstance),
-    Keyframe(ResolvedTimelineObjectInstanceKeyframe),
+pub struct ResolvedTimelineObjectEntry {
+    pub instance: Rc<ResolvedTimelineObjectInstance>, // TODO - should this be Option with logic to handle that?
+    pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
 }
 
 #[derive(Clone)]
@@ -19,77 +18,15 @@ pub struct ResolvedTimelineObjectInstanceKeyframe {
 }
 
 #[derive(Clone)]
-pub struct ResolvedTimelineObjectInner {
-    pub object_id: String,
-    // pub object_enable: Vec<TimelineEnable>,
-    pub object_priority: u64,
-    pub object_disabled: bool,
-    pub object_layer: String,
-
-    // pub object: Box<dyn IsTimelineObject>,
-    // pub resolved: TimelineObjectResolved,
-    pub info: TimelineObjectResolveInfo,
-    // pub object: TimelineObject,
-    // pub resolved: TimelineObjectResolveStatus,
-    // pub info: TimelineObjectResolveInfo,
-    // pub object: Rc<ResolvedTimelineObject>,
-    // pub instance: TimelineObjectInstance,
-}
-
-#[derive(Clone)]
 pub struct ResolvedTimelineObjectInstance {
-    pub inner: ResolvedTimelineObjectInner,
-    // pub object_id: String,
-    // // pub object_enable: Vec<TimelineEnable>,
-    // pub object_priority: u64,
-    // pub object_disabled: bool,
-    // pub object_layer: String,
-
-    // // pub object: Box<dyn IsTimelineObject>,
-    // // pub resolved: TimelineObjectResolved,
-    // pub info: TimelineObjectResolveInfo,
-    // // pub object: TimelineObject,
-    // // pub resolved: TimelineObjectResolveStatus,
-    // // pub info: TimelineObjectResolveInfo,
-    // // pub object: Rc<ResolvedTimelineObject>,
+    pub info: TimelineObjectResolveInfo,
     pub instance: Rc<TimelineObjectInstance>,
 }
 
 #[derive(Clone)]
 pub struct ResolvedTimelineObjectInstances {
-    pub inner: ResolvedTimelineObjectInner,
-    // pub object_id: String,
-    // // pub object_enable: Vec<TimelineEnable>,
-    // pub object_priority: u64,
-    // pub object_disabled: bool,
-    // pub object_layer: String,
-
-    // // pub object: Box<dyn IsTimelineObject>,
-    // // pub resolved: TimelineObjectResolved,
-    // pub info: TimelineObjectResolveInfo,
-    // // pub object: TimelineObject,
-    // // pub resolved: TimelineObjectResolveStatus,
-    // // pub info: TimelineObjectResolveInfo,
-    // // pub object: Rc<ResolvedTimelineObject>,
+    pub info: TimelineObjectResolveInfo,
     pub instances: Vec<Rc<TimelineObjectInstance>>,
-}
-
-#[derive(Clone)]
-pub struct ResolvedTimelineObjectInstance2 {
-    pub object_id: String,
-    // pub object_enable: Vec<TimelineEnable>,
-    // pub object_priority: u64,
-    // pub object_disabled: bool,
-    // pub object_layer: String,
-
-    // pub object: Box<dyn IsTimelineObject>,
-    // pub resolved: TimelineObjectResolved,
-    // pub info: TimelineObjectResolveInfo,
-    // pub object: TimelineObject,
-    // pub resolved: TimelineObjectResolveStatus,
-    // pub info: TimelineObjectResolveInfo,
-    // pub object: Rc<ResolvedTimelineObject>,
-    pub instances: Vec<TimelineObjectInstance>,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +50,12 @@ impl TimelineObjectResolveStatus {
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectResolveInfo {
+    pub id: String,
+    pub enable: Vec<TimelineEnable>,
+    pub priority: u64,
+    pub disabled: bool,
+    pub layer: String,
+
     /** Increases the more levels inside of a group the objects is */
     pub depth: usize,
     /** Id of the parent object */
@@ -173,7 +116,7 @@ pub struct TimelineObjectInstance {
     pub from_instance_id: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TimelineEnable {
     /** (Optional) The start time of the object. (Cannot be combined with .while) */
     pub enable_start: Option<Expression>,

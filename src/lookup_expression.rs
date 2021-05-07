@@ -147,7 +147,7 @@ fn lookup_expression_str(
     if let Some(expression_references) = match_expression_references(ctx, expr_str) {
         let mut referenced_objs: Vec<&ResolvedTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
-            if ref_obj_id.eq(&obj.object_id) {
+            if ref_obj_id.eq(&obj.info.id) {
                 let mut locked = obj.resolved.write().unwrap(); // TODO - handle error
                 match &mut *locked {
                     TimelineObjectResolveStatus::Pending => {
@@ -213,7 +213,7 @@ fn lookup_expression_str(
                                         let mut references = HashSet::new();
                                         references
                                             .extend(first_instance.references.iter().cloned());
-                                        references.insert(ref_obj.object_id.clone());
+                                        references.insert(ref_obj.info.id.clone());
 
                                         instance_durations.push(TimeWithReference {
                                             value: duration,
