@@ -1,8 +1,9 @@
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
 
+const OPERATORS: &'static [&'static str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
+
 lazy_static::lazy_static! {
-    static ref OPERATORS: &'static [&'static str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
     static ref OPERATOR_REGEX: Regex = {
         let operators = OPERATORS.iter().map(|o| regex::escape(o)).collect::<Vec<String>>().join("");
 
@@ -153,104 +154,18 @@ pub fn interpret_expression_string(expression_str: &str) -> Result<Expression, E
     }
 
     let wrapped = wrap_expression(words)?;
-    interpret_phrase(wrapped)
+    interpret_phrase(wrapped.as_slice(), None)
 }
 
-fn interpret_word(
-    words_before: &mut Vec<WrappedWords>,
-    word: WrappedWords,
-) -> Result<Expression, ExpressionError> {
-    // Look at the word before to check if this should be inverted
-    let invert = {
-        if let Some(word_before) = words_before.last() {
-            match word_before {
-                WrappedWords::Single(word) => {
-                    if *word == "!" {
-                        words_before.pop();
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            }
-        } else {
-            false
-        }
-    };
-
-    let inner = match word {
-        WrappedWords::Single(word) => {
-            if let Ok(num) = word.parse::<i64>() {
-                Ok(Expression::Number(ensure_number_polarity(
-                    words_before,
-                    num,
-                )))
-            } else {
-                Ok(Expression::String(word.to_string()))
-            }
-        }
-        WrappedWords::Group(grp) => interpret_phrase(grp),
-    };
-
-    if invert {
-        inner.map(|e| Expression::Invert(Box::new(e)))
-    } else {
-        inner
-    }
-}
-
-fn is_operator(word: &WrappedWords) -> bool {
-    if let WrappedWords::Single(word) = word {
-        word.len() == 1 && OPERATORS.contains(word)
-    } else {
-        false
-    }
-}
-
-fn process_number_polarity(val: i64, polarity: &WrappedWords) -> Option<i64> {
-    if let WrappedWords::Single(op) = polarity {
-        if *op == "+" {
-            Some(val)
-        } else if *op == "-" {
-            Some(-val)
-        } else {
-            None
+fn ensure_number_polarity(prev_op: Option<ExpressionOperator>, val: i64) -> Option<i64> {
+    if let Some(op) = prev_op {
+        match op {
+            ExpressionOperator::Add => Some(val),
+            ExpressionOperator::Subtract => Some(-val),
+            _ => None
         }
     } else {
-        None
-    }
-}
-
-fn ensure_number_polarity(phrase: &mut Vec<WrappedWords>, val: i64) -> i64 {
-    if let Some(polarity) = phrase.last() {
-        if is_operator(polarity) {
-            if phrase.len() == 1 {
-                // TODO this must be polarity
-                if let Some(res) = process_number_polarity(val, polarity) {
-                    phrase.pop();
-                    res
-                } else {
-                    val
-                }
-            } else {
-                let prev_word = &phrase[phrase.len() - 2];
-                if is_operator(prev_word) {
-                    if let Some(res) = process_number_polarity(val, polarity) {
-                        phrase.pop();
-                        res
-                    } else {
-                        val
-                    }
-                } else {
-                    val
-                }
-            }
-        } else {
-            val
-        }
-    } else {
-        val
+        Some(val)
     }
 }
 
@@ -274,43 +189,121 @@ fn match_operator(str: &str) -> Option<ExpressionOperator> {
     }
 }
 
-fn interpret_phrase(mut phrase: Vec<WrappedWords>) -> Result<Expression, ExpressionError> {
-    if let Some(last_word) = phrase.pop() {
-        let mut current_expression = interpret_word(&mut phrase, last_word)?;
+fn unwrap_word<'a>(word: &WrappedWords<'a>) -> Option<&'a str> {
+    match word {
+        WrappedWords::Group(_) => None,
+        WrappedWords::Single(w) => Some(w),
+    }
+}
 
-        while phrase.len() > 0 {
-            if let Some(operator) = phrase.pop() {
-                if let WrappedWords::Single(op) = operator {
-                    // Catch any remaining negations
-                    if op == "!" {
-                        current_expression = Expression::Invert(Box::new(current_expression));
-                        continue;
-                    }
-
-                    let left = phrase
-                        .pop()
-                        .ok_or(ExpressionError::Invalid)
-                        .and_then(|x| interpret_word(&mut phrase, x))?;
-
-                    if let Some(op2) = match_operator(op) {
-                        current_expression = ExpressionObj {
-                            l: left,
-                            o: op2,
-                            r: current_expression,
-                        }
-                        .wrap();
-                    } else {
-                        return Err(ExpressionError::InvalidOperator(op.to_string()));
-                    }
+fn interpret_phrase(
+    phrase: &[WrappedWords],
+    prev_op: Option<ExpressionOperator>,
+) -> Result<Expression, ExpressionError> {
+    if phrase.len() == 0 {
+        Ok(Expression::Null)
+    } else if phrase.len() == 1 {
+        match phrase.last().unwrap() {
+            WrappedWords::Single(word) => {
+                if let Ok(num) = word.parse::<i64>() {
+                    let parsed = ensure_number_polarity(prev_op, num)
+                        .ok_or(ExpressionError::InvalidOperator2)?;
+                    Ok(Expression::Number(parsed))
                 } else {
-                    return Err(ExpressionError::MissingOperator);
+                    Ok(Expression::String(word.to_string()))
+                }
+            }
+            WrappedWords::Group(grp) => {
+                if prev_op.is_some() {
+                    Err(ExpressionError::InvalidOperator2)
+                } else {
+                    interpret_phrase(grp, None)
                 }
             }
         }
-
-        Ok(current_expression)
     } else {
-        Ok(Expression::Null)
+        let operator_index = {
+            let mut found = None;
+            for op in OPERATORS {
+                let index = phrase.iter().rposition(|w| {
+                    if let WrappedWords::Single(w2) = w {
+                        w2.eq(op)
+                    } else {
+                        false
+                    }
+                });
+                if let Some(index) = index {
+                    found = Some(index);
+                    break;
+                }
+            }
+
+            found
+        };
+
+        if let Some(op_index) = operator_index {
+            if op_index != phrase.len() - 1 {
+                // Nothing is following, therefore must be bad..
+                let raw_op =
+                    unwrap_word(&phrase[op_index]).ok_or(ExpressionError::MissingOperator)?;
+
+                let prev_as_op = {
+                    if op_index > 0 {
+                        if let Some(raw_op2) = unwrap_word(&phrase[op_index - 1]) {
+                            match_operator(raw_op2)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+
+                if op_index == 0 && raw_op == "!" {
+                    let r2 = interpret_phrase(&phrase[1..], None)?;
+                    Ok(Expression::Invert(Box::new(r2)))
+                } else {
+                    let new_op = match_operator(raw_op).ok_or(ExpressionError::InvalidOperator2)?;
+
+                    if op_index == 0 {
+                        if prev_op.is_some() {
+                            Err(ExpressionError::InvalidOperator2)
+                        } else {
+                            interpret_phrase(&phrase[1..], Some(new_op))
+                        }
+                    } else {
+                        let real_op = prev_as_op.unwrap_or(new_op);
+
+                        let index = if prev_as_op.is_some() {
+                            op_index - 1
+                        } else {
+                            op_index
+                        };
+
+                        let l2 = interpret_phrase(&phrase[..index], prev_op)?;
+                        let r2 = interpret_phrase(
+                            &phrase[(op_index + 1)..],
+                            if prev_as_op.is_some() {
+                                Some(new_op)
+                            } else {
+                                None
+                            },
+                        )?;
+
+                        Ok(ExpressionObj {
+                            l: l2,
+                            o: real_op,
+                            r: r2,
+                        }
+                        .wrap())
+                    }
+                }
+            } else {
+                Err(ExpressionError::Invalid)
+            }
+        } else {
+            Err(ExpressionError::MissingOperator)
+        }
     }
 }
 
@@ -326,6 +319,8 @@ pub enum ExpressionError {
     Invalid,
     MissingOperator,
     InvalidOperator(String),
+    InvalidOperator2,
+    Test(Option<ExpressionOperator>),
 }
 
 fn wrap_expression(words: Vec<&str>) -> Result<Vec<WrappedWords>, ExpressionError> {
@@ -491,20 +486,20 @@ mod tests {
             .wrap()
         );
 
-        //        assert_eq!(
-        //            interpret_expression_string("1 * 2 + 3").expect("Expected success"),
-        //            ExpressionObj {
-        //                l: ExpressionObj {
-        //                    l: Expression::Number(1),
-        //                    o: "*".to_string(),
-        //                    r: Expression::Number(2)
-        //                }
-        //                .wrap(),
-        //                o: "+".to_string(),
-        //                r: Expression::Number(3)
-        //            }
-        //            .wrap()
-        //        );
+        assert_eq!(
+            interpret_expression_string("1 * 2 + 3").expect("Expected success"),
+            ExpressionObj {
+                l: ExpressionObj {
+                    l: Expression::Number(1),
+                    o: ExpressionOperator::Multiply,
+                    r: Expression::Number(2)
+                }
+                .wrap(),
+                o: ExpressionOperator::Add,
+                r: Expression::Number(3)
+            }
+            .wrap()
+        );
 
         assert_eq!(
             interpret_expression_string("1 * (2 + 3)").expect("Expected success"),
@@ -584,30 +579,52 @@ mod tests {
             interpret_expression_string("").expect("Expected success"),
             Expression::Null
         );
+
+        assert_eq!(
+            interpret_expression_string("1+2+3").expect("Expected success"),
+            ExpressionObj {
+                l: ExpressionObj {
+                    l: Expression::Number(1),
+                    o: ExpressionOperator::Add,
+                    r: Expression::Number(2),
+                }
+                .wrap(),
+                o: ExpressionOperator::Add,
+                r: Expression::Number(3),
+            }
+            .wrap()
+        );
     }
 
     #[test]
-    fn wrap_inner_expressions1() {
-        let input = vec!["a", "(", "b", "c", ")"];
-        let expected = vec![
-            WrappedWords::Single("a"),
-            WrappedWords::Group(vec![WrappedWords::Single("b"), WrappedWords::Single("c")]),
-        ];
-        assert_eq!(wrap_expression(input).unwrap(), expected);
-    }
+    fn simplify_expressions() {
+        let expr1 = interpret_expression_string("1+2+3").expect("Expected success");
+        assert_eq!(
+            simplify_expression(&expr1).expect("Expected simplify"),
+            Expression::Number(6)
+        );
 
-    #[test]
-    fn wrap_inner_expressions2() {
-        let input = vec!["a", "&", "!", "b"];
-        let expected = vec![
-            WrappedWords::Single("a"),
-            WrappedWords::Single("&"),
-            WrappedWords::Group(vec![
-                WrappedWords::Single(""),
-                WrappedWords::Single("!"),
-                WrappedWords::Single("b"),
-            ]),
-        ];
-        assert_eq!(wrap_expression(input).unwrap(), expected);
+        let expr2 = interpret_expression_string("1+2*2+(4-2)").expect("Expected success");
+        assert_eq!(
+            simplify_expression(&expr2).expect("Expected simplify"),
+            Expression::Number(7)
+        );
+
+        let expr3 = interpret_expression_string("10 / 2 + 1").expect("Expected success");
+        assert_eq!(
+            simplify_expression(&expr3).expect("Expected simplify"),
+            Expression::Number(6)
+        );
+
+        let expr4 = interpret_expression_string("40+2+asdf").expect("Expected success");
+        assert_eq!(
+            simplify_expression(&expr4).expect("Expected simplify"),
+            ExpressionObj {
+                l: Expression::Number(42),
+                o: ExpressionOperator::Add,
+                r: Expression::String("asdf".to_string())
+            }
+            .wrap()
+        );
     }
 }
