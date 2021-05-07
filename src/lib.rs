@@ -13,6 +13,9 @@ mod util;
 
 //use crate::types::{Expression, ExpressionObj};
 
+pub use state::{get_state, resolve_states};
+pub use api::resolve_timeline;
+
 #[cfg(test)]
 mod tests {
     //    use crate::expression::{ExpressionObj, Expression};

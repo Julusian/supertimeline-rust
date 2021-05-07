@@ -215,7 +215,7 @@ fn get_converted_array_to_operate(
             caps: vec![],
             from_instance_id: None,
         }]),
-        LookupExpressionResultType::Instances(instances) => None,
+        LookupExpressionResultType::Instances(_) => None,
     }
 }
 fn get_existing_array_to_operate(
@@ -223,7 +223,7 @@ fn get_existing_array_to_operate(
 ) -> Option<&Vec<TimelineObjectInstance>> {
     match a {
         LookupExpressionResultType::Null => None,
-        LookupExpressionResultType::TimeRef(time_ref) => None,
+        LookupExpressionResultType::TimeRef(_) => None,
         LookupExpressionResultType::Instances(instances) => Some(instances),
     }
 }
@@ -473,31 +473,9 @@ pub fn apply_parent_instances(
     }
 }
 
-pub fn cap_instances(
-    instances: &Vec<TimelineObjectInstance>,
-    parent_instances: &LookupExpressionResultType,
-) -> Vec<TimelineObjectInstance> {
-    match parent_instances {
-        LookupExpressionResultType::Null => instances.clone(),
-        LookupExpressionResultType::TimeRef(_) => instances.clone(),
-        LookupExpressionResultType::Instances(parent_instances) => {
-            let mut return_instances = Vec::new();
-
-            for instance in instances {
-                if let Some(new_instance) =
-                    cap_instance(instance, &parent_instances.iter().collect())
-                {
-                    return_instances.push(new_instance);
-                }
-            }
-
-            return_instances
-        }
-    }
-}
-
 pub fn cap_instance(
     instance: &TimelineObjectInstance,
+    // TODO - this should not be a vec
     parent_instances: &Vec<&TimelineObjectInstance>,
 ) -> Option<TimelineObjectInstance> {
     let mut parent: Option<&TimelineObjectInstance> = None;

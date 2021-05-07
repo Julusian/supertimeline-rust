@@ -7,7 +7,6 @@ use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
     ResolvedTimelineObjectInstanceKeyframe,
 };
-use crate::util::set_instance_end_time;
 use crate::util::Time;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -66,7 +65,7 @@ impl ResolvedTimelineObject {
 }
 
 pub type AllStates = HashMap<String, HashMap<Time, ResolvedTimelineObjectEntry>>;
-pub type StateInTime = HashMap<String, Rc<ResolvedTimelineObjectInstance>>;
+// pub type StateInTime = HashMap<String, Rc<ResolvedTimelineObjectInstance>>;
 pub type StateInTime2 = HashMap<String, ResolvedTimelineObjectEntry>;
 
 pub struct ResolvedStates {
@@ -159,14 +158,6 @@ fn get_state_at_time_for_layer(
     } else {
         None
     }
-}
-
-fn apply_keyframe_content(
-    _instance: &mut ResolvedTimelineObjectInstance,
-    _keyframe: &ResolvedTimelineObjectInstanceKeyframe,
-) {
-    // TODO
-    // Something maybe here, ideally this shouldnt deal with content, and should simply report the presence of the keyframe for the consumer to do the content mangling
 }
 
 // -------
@@ -327,7 +318,7 @@ pub fn resolve_states(
     // determining the state for every point in time by adding & removing objects from aspiringInstances
     // Then sorting it to determine who takes precedence
 
-    let mut current_state: StateInTime = HashMap::new();
+    let mut current_state: HashMap<String, Rc<ResolvedTimelineObjectInstance>> = HashMap::new();
     let mut active_object_ids = HashMap::new();
     let mut active_keyframes = HashMap::new();
     let mut active_keyframes_checked = HashSet::new();
@@ -481,7 +472,8 @@ pub fn resolve_states(
                     if replace_old_obj || remove_old_obj {
                         if let Some(prev_obj) = prev_obj {
                             // Cap the old instance, so it'll end at this point in time:
-                            set_instance_end_time(&mut prev_obj.instance, time);
+                            // TODO - this needs enabling, but its going to be such a pain! Lets get some tests passing first
+                            // set_instance_end_time(&mut prev_obj.instance, time);
 
                             // Update activeObjIds:
                             active_object_ids.remove(&prev_obj.info.id);
