@@ -1,27 +1,95 @@
 use crate::caps::Cap;
 use crate::expression::Expression;
+use crate::state::ResolvedTimelineObject;
 use crate::util::Time;
 use std::collections::HashSet;
+use std::rc::Rc;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ResolvedTimelineObjectEntry {
     Instance(ResolvedTimelineObjectInstance),
     Keyframe(ResolvedTimelineObjectInstanceKeyframe),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ResolvedTimelineObjectInstanceKeyframe {
     pub instance: ResolvedTimelineObjectInstance,
     //pub is_keyframe: bool,
     pub keyframe_end_time: Option<Time>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ResolvedTimelineObjectInstance {
-    // pub object: TimelineObject,
-    pub resolved: TimelineObjectResolveStatus,
+#[derive(Clone)]
+pub struct ResolvedTimelineObjectInner {
+    pub object_id: String,
+    // pub object_enable: Vec<TimelineEnable>,
+    pub object_priority: u64,
+    pub object_disabled: bool,
+    pub object_layer: String,
+
+    // pub object: Box<dyn IsTimelineObject>,
+    // pub resolved: TimelineObjectResolved,
     pub info: TimelineObjectResolveInfo,
-    pub instance: TimelineObjectInstance,
+    // pub object: TimelineObject,
+    // pub resolved: TimelineObjectResolveStatus,
+    // pub info: TimelineObjectResolveInfo,
+    // pub object: Rc<ResolvedTimelineObject>,
+    // pub instance: TimelineObjectInstance,
+}
+
+#[derive(Clone)]
+pub struct ResolvedTimelineObjectInstance {
+    pub inner: ResolvedTimelineObjectInner,
+    // pub object_id: String,
+    // // pub object_enable: Vec<TimelineEnable>,
+    // pub object_priority: u64,
+    // pub object_disabled: bool,
+    // pub object_layer: String,
+
+    // // pub object: Box<dyn IsTimelineObject>,
+    // // pub resolved: TimelineObjectResolved,
+    // pub info: TimelineObjectResolveInfo,
+    // // pub object: TimelineObject,
+    // // pub resolved: TimelineObjectResolveStatus,
+    // // pub info: TimelineObjectResolveInfo,
+    // // pub object: Rc<ResolvedTimelineObject>,
+    pub instance: Rc<TimelineObjectInstance>,
+}
+
+#[derive(Clone)]
+pub struct ResolvedTimelineObjectInstances {
+    pub inner: ResolvedTimelineObjectInner,
+    // pub object_id: String,
+    // // pub object_enable: Vec<TimelineEnable>,
+    // pub object_priority: u64,
+    // pub object_disabled: bool,
+    // pub object_layer: String,
+
+    // // pub object: Box<dyn IsTimelineObject>,
+    // // pub resolved: TimelineObjectResolved,
+    // pub info: TimelineObjectResolveInfo,
+    // // pub object: TimelineObject,
+    // // pub resolved: TimelineObjectResolveStatus,
+    // // pub info: TimelineObjectResolveInfo,
+    // // pub object: Rc<ResolvedTimelineObject>,
+    pub instances: Vec<Rc<TimelineObjectInstance>>,
+}
+
+#[derive(Clone)]
+pub struct ResolvedTimelineObjectInstance2 {
+    pub object_id: String,
+    // pub object_enable: Vec<TimelineEnable>,
+    // pub object_priority: u64,
+    // pub object_disabled: bool,
+    // pub object_layer: String,
+
+    // pub object: Box<dyn IsTimelineObject>,
+    // pub resolved: TimelineObjectResolved,
+    // pub info: TimelineObjectResolveInfo,
+    // pub object: TimelineObject,
+    // pub resolved: TimelineObjectResolveStatus,
+    // pub info: TimelineObjectResolveInfo,
+    // pub object: Rc<ResolvedTimelineObject>,
+    pub instances: Vec<TimelineObjectInstance>,
 }
 
 #[derive(Debug, Clone)]

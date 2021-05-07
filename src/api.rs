@@ -96,6 +96,9 @@ fn add_object_to_timeline(
     let resolved_obj = ResolvedTimelineObject {
         object_id: obj.id().to_string(),
         object_enable: obj.enable().clone(),
+        object_priority: obj.priority(),
+        object_disabled: obj.disabled(),
+        object_layer: obj.layer().to_string(),
         resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
         info: TimelineObjectResolveInfo {
             depth: depth,
@@ -117,6 +120,8 @@ fn add_object_to_timeline(
             let resolved_obj = ResolvedTimelineObject {
                 object_id: keyframe.id().to_string(),
                 object_enable: keyframe.enable().clone(),
+                object_priority: 0, //keyframe.priority(),
+                object_disabled: keyframe.disabled(),
                 resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
                 info: TimelineObjectResolveInfo {
                     depth: depth + 1,
@@ -146,7 +151,7 @@ pub trait ResolverContext {
 pub struct ResolvedTimeline {
     pub options: ResolveOptions,
     /** Map of all objects on timeline */
-    objects: HashMap<String, ResolvedTimelineObject>,
+    pub objects: HashMap<String, ResolvedTimelineObject>,
     /** Map of all classes on timeline, maps className to object ids */
     classes: HashMap<String, Vec<String>>,
     /** Map of the object ids, per layer */
