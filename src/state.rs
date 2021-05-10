@@ -509,7 +509,6 @@ pub fn resolve_all_states(
                             if let Some(obj) = existing_obj {
                                 obj
                             } else {
-                                // TODO - how does the object properties line up with the one we are operating on?
                                 let new_obj = ResolvedStatesForObject {
                                     info: current_on_top_of_layer.info.clone(),
                                     instances: HashMap::new(),
