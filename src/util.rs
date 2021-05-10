@@ -195,13 +195,11 @@ where
 {
     let lookup0_converted = get_converted_array_to_operate(lookup0);
     let lookup0_orig = get_existing_array_to_operate(lookup0);
-    if let Some(lookup0) = lookup0_orig.or_else(|| lookup0_converted.as_ref())
-    {
+    if let Some(lookup0) = lookup0_orig.or_else(|| lookup0_converted.as_ref()) {
         let lookup1_converted = get_converted_array_to_operate(lookup1);
         let lookup1_orig = get_existing_array_to_operate(lookup1);
 
-        if let Some(lookup1) =lookup1_orig.or_else(|| lookup1_converted.as_ref())
-        {
+        if let Some(lookup1) = lookup1_orig.or_else(|| lookup1_converted.as_ref()) {
             // TODO - both refs shortcut
             // if (
             //     isReference(array0) &&
@@ -212,10 +210,22 @@ where
 
             let mut result = Vec::new();
 
-            let lookup0_len = if let Some(l) = lookup0_orig { l.len() } else { usize::MAX }; 
-            let lookup1_len = if let Some(l) = lookup1_orig { l.len() } else { usize::MAX }; 
+            let lookup0_len = if let Some(l) = lookup0_orig {
+                l.len()
+            } else {
+                usize::MAX
+            };
+            let lookup1_len = if let Some(l) = lookup1_orig {
+                l.len()
+            } else {
+                usize::MAX
+            };
 
-            let min_length = if lookup0_len == usize::MAX && lookup1_len == usize::MAX { 1 } else { min(lookup0_len, lookup1_len) };
+            let min_length = if lookup0_len == usize::MAX && lookup1_len == usize::MAX {
+                1
+            } else {
+                min(lookup0_len, lookup1_len)
+            };
 
             // let min_length = min(lookup0.len(), lookup1.len());
             // Iterate through both until we run out of one
@@ -223,8 +233,7 @@ where
                 let a = lookup0.get(i).or_else(|| lookup0.get(0));
                 let b = lookup1.get(i).or_else(|| lookup1.get(0));
                 if let Some(a) = a {
-                    if let Some(b ) = b {
-
+                    if let Some(b) = b {
                         let start = if a.is_first {
                             Some(TimeWithReference {
                                 value: a.start,
@@ -304,7 +313,6 @@ where
                             })
                         }
                     }
-
                 }
             }
 
@@ -337,8 +345,11 @@ pub fn apply_repeating_instances(
         // }
 
         for instance in &instances {
+            // TODO - fix this maths hack
             let mut start_time = max(
-                options.time - ((options.time - instance.start) % repeat_time.value),
+                (options.time as i128
+                    - (((options.time as i128) - instance.start as i128)
+                        % repeat_time.value as i128)) as u64,
                 instance.start,
             );
             let mut end_time = instance.end.map(|end| end + (start_time - instance.start));

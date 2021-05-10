@@ -1,5 +1,5 @@
 [package]
-name = "supertimeline-rust"
+name = "supertimeline"
 version = "0.1.0"
 authors = ["Julian Waller <git@julusian.co.uk>"]
 edition = "2018"

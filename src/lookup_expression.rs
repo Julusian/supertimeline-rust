@@ -60,8 +60,12 @@ pub fn lookup_expression(
         Expression::Invert(inner_expr) => {
             let inner_res = lookup_expression(ctx, obj, inner_expr, default_ref_type)?;
 
+            println!("aa {:?}", inner_res.result);
+
             let inner_res2 = match inner_res.result {
-                LookupExpressionResultType::Null => LookupExpressionResultType::Null,
+                LookupExpressionResultType::Null => {
+                    LookupExpressionResultType::Instances(invert_instances(ctx, &[]))
+                }
                 LookupExpressionResultType::TimeRef(time_ref) => {
                     LookupExpressionResultType::TimeRef(time_ref)
                 } // Can't invert a time

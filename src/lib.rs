@@ -13,8 +13,13 @@ mod util;
 
 //use crate::types::{Expression, ExpressionObj};
 
-pub use api::resolve_timeline;
-pub use state::{get_state, resolve_all_states};
+pub use api::{resolve_timeline, IsTimelineKeyframe, IsTimelineObject, ResolveOptions};
+pub use expression::{Expression, ExpressionError, ExpressionObj, ExpressionOperator};
+pub use instance::{TimelineEnable, TimelineObjectInstance};
+pub use state::{
+    get_state, resolve_all_states, EventType, NextEvent, ResolvedStates, ResolvedStatesError,
+    ResolvedTimelineObject, ResolvedTimelineObjectInstance, TimelineState,
+};
 
 #[cfg(test)]
 mod tests {
