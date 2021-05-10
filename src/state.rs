@@ -1,12 +1,7 @@
 use crate::api::ResolvedTimeline;
-use crate::instance::ResolvedTimelineObjectInstances;
 use crate::instance::TimelineObjectInfo;
 use crate::instance::TimelineObjectInstance;
 use crate::instance::TimelineObjectResolved;
-use crate::instance::{
-    ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
-    ResolvedTimelineObjectInstanceKeyframe,
-};
 use crate::util::Time;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -29,32 +24,55 @@ pub struct NextEvent {
 }
 
 pub struct ResolvedTimelineObject {
-    // pub object: Box<dyn IsTimelineObject>,
     pub resolved: TimelineObjectResolved,
-    pub info: TimelineObjectInfo,
+    pub info: Rc<TimelineObjectInfo>,
 }
 
-pub type AllStates = HashMap<String, HashMap<Time, ResolvedTimelineObjectEntry>>;
-// pub type StateInTime = HashMap<String, Rc<ResolvedTimelineObjectInstance>>;
-pub type StateInTime2 = HashMap<String, ResolvedTimelineObjectEntry>;
+pub type AllStates = HashMap<String, HashMap<Time, TimelineLayerState>>;
+
+#[derive(Clone)]
+pub struct ResolvedStatesForObject {
+    pub info: Rc<TimelineObjectInfo>,
+    pub instances: Vec<Rc<TimelineObjectInstance>>,
+}
 
 pub struct ResolvedStates {
-    // pub timeline: ResolvedTimeline, // TODO - is this necessary?
     pub state: AllStates,
     pub next_events: Vec<NextEvent>,
 
-    // TODO - some of these below are excessive and
+    // TODO - some of these below are excessive and need clarifying what they now are
     /** Map of all objects on timeline */
-    pub objects: HashMap<String, ResolvedTimelineObjectInstances>,
+    pub objects: HashMap<String, ResolvedStatesForObject>,
     /** Map of all classes on timeline, maps className to object ids */
     pub classes: HashMap<String, Vec<String>>,
     /** Map of the object ids, per layer */
     pub layers: HashMap<String, Vec<String>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ResolvedTimelineObjectInstanceKeyframe {
+    // TODO - remove info from here, and surely the keyframe id will be needed instead?
+    pub info: Rc<TimelineObjectInfo>,
+    // pub instance: Rc<TimelineObjectInstance>,
+    pub keyframe_end_time: Option<Time>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedTimelineObjectInstance {
+    pub info: Rc<TimelineObjectInfo>,
+    pub instance: Rc<TimelineObjectInstance>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TimelineLayerState {
+    pub info: Rc<TimelineObjectInfo>,
+    pub instance: Rc<TimelineObjectInstance>, // TODO - this is a bit heavy now?
+    pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
+}
+
 pub struct TimelineState {
     pub time: Time,
-    pub layers: StateInTime2,
+    pub layers: HashMap<String, TimelineLayerState>,
     pub next_events: Vec<NextEvent>,
 }
 
@@ -100,7 +118,7 @@ fn get_state_at_time_for_layer(
     states: &AllStates,
     layer_id: &str,
     request_time: Time,
-) -> Option<ResolvedTimelineObjectEntry> {
+) -> Option<TimelineLayerState> {
     if let Some(layer_states) = states.get(layer_id) {
         let layer_contents = {
             let mut tmp = layer_states.iter().collect::<Vec<_>>();
@@ -108,14 +126,14 @@ fn get_state_at_time_for_layer(
             tmp
         };
 
-        let mut best_state: Option<ResolvedTimelineObjectEntry> = None;
+        let mut best_state: Option<TimelineLayerState> = None;
 
         for (time, current_state_instances) in layer_contents {
             if *time <= request_time {
                 let mut keyframes = current_state_instances.keyframes.clone();
                 keyframes.retain(|keyframe| {
-                    if let Some(parent_id) = &keyframe.instance.info.parent_id {
-                        if parent_id.eq(&current_state_instances.instance.instance.id) {
+                    if let Some(parent_id) = &keyframe.info.parent_id {
+                        if parent_id.eq(&current_state_instances.instance.id) {
                             if keyframe.keyframe_end_time.unwrap_or(Time::MAX) > request_time {
                                 // Apply the keyframe on the state:
                                 return true;
@@ -124,7 +142,8 @@ fn get_state_at_time_for_layer(
                     }
                     return false;
                 });
-                best_state = Some(ResolvedTimelineObjectEntry {
+                best_state = Some(TimelineLayerState {
+                    info: current_state_instances.info.clone(),
                     instance: current_state_instances.instance.clone(),
                     keyframes,
                 });
@@ -475,7 +494,7 @@ pub fn resolve_all_states(
                                 obj
                             } else {
                                 // TODO - how does the object properties line up with the one we are operating on?
-                                let new_obj = ResolvedTimelineObjectInstances {
+                                let new_obj = ResolvedStatesForObject {
                                     info: current_on_top_of_layer.info.clone(),
                                     instances: Vec::new(),
                                 };
@@ -584,7 +603,7 @@ pub fn resolve_all_states(
                     // Add keyframe to resolvedStates.objects:
                     resolved_states.objects.insert(
                         obj.info.id.clone(),
-                        ResolvedTimelineObjectInstances {
+                        ResolvedStatesForObject {
                             info: obj.info.clone(),
                             instances: vec![obj.instance.clone()],
                         },
@@ -619,10 +638,8 @@ pub fn resolve_all_states(
                             // hasn't started before
                             let keyframe_instance =
                                 Rc::new(ResolvedTimelineObjectInstanceKeyframe {
-                                    instance: ResolvedTimelineObjectInstance {
-                                        info: keyframe.info.clone(),
-                                        instance: instance.clone(),
-                                    },
+                                    info: keyframe.info.clone(),
+                                    // instance: instance.clone(),
                                     keyframe_end_time: instance.end,
                                 });
 
@@ -761,8 +778,9 @@ fn set_state_at_time(
     if let Some(instance) = instance {
         layer_states.insert(
             time,
-            ResolvedTimelineObjectEntry {
-                instance: instance.clone(),
+            TimelineLayerState {
+                info: instance.info.clone(),
+                instance: instance.instance.clone(),
                 keyframes: Vec::new(),
             },
         );

@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use crate::instance::TimelineEnable;
 use crate::instance::TimelineObjectInfo;
 use crate::resolver::ResolveError;
@@ -208,7 +209,7 @@ pub fn resolve_timeline(
                 resolved_timeline.objects.insert(
                     id,
                     ResolvedTimelineObject {
-                        info: obj.info,
+                        info: Rc::new(obj.info),
                         resolved: res,
                     },
                 );
@@ -288,7 +289,7 @@ mod tests {
             .get(layer)
             .expect(&format!("Expected '{}' on layer '{}'", id, layer));
 
-        assert_eq!(obj.instance.info.id, id.to_string());
+        assert_eq!(obj.info.id, id.to_string());
     }
 
     #[test]

@@ -2,32 +2,6 @@ use crate::caps::Cap;
 use crate::expression::Expression;
 use crate::util::Time;
 use std::collections::HashSet;
-use std::rc::Rc;
-
-#[derive(Debug, Clone)]
-pub struct ResolvedTimelineObjectEntry {
-    pub instance: Rc<ResolvedTimelineObjectInstance>,
-    pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedTimelineObjectInstanceKeyframe {
-    pub instance: ResolvedTimelineObjectInstance,
-    //pub is_keyframe: bool,
-    pub keyframe_end_time: Option<Time>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedTimelineObjectInstance {
-    pub info: TimelineObjectInfo,
-    pub instance: Rc<TimelineObjectInstance>,
-}
-
-#[derive(Clone)]
-pub struct ResolvedTimelineObjectInstances {
-    pub info: TimelineObjectInfo,
-    pub instances: Vec<Rc<TimelineObjectInstance>>,
-}
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectInfo {
