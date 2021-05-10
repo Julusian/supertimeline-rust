@@ -18,6 +18,7 @@ lazy_static::lazy_static! {
     static ref MATCH_LAYER_REGEX: Regex = Regex::new(r"^\W*\$([^.]+)(.*)").unwrap();
 }
 
+#[derive(Debug)]
 pub enum LookupExpressionResultType {
     Instances(Vec<TimelineObjectInstance>),
     TimeRef(TimeWithReference),
@@ -179,11 +180,11 @@ fn lookup_expression_str(
         if !referenced_objs.is_empty() {
             let ref_type = {
                 // TODO - these should be looser regex
-                if expression_references.remaining_expression == "start" {
+                if expression_references.remaining_expression == ".start" {
                     ObjectRefType::Start
-                } else if expression_references.remaining_expression == "end" {
+                } else if expression_references.remaining_expression == ".end" {
                     ObjectRefType::End
-                } else if expression_references.remaining_expression == "duration" {
+                } else if expression_references.remaining_expression == ".duration" {
                     ObjectRefType::Duration
                 } else {
                     default_ref_type.clone()

@@ -29,6 +29,7 @@ pub enum ObjectRefType {
     Duration,
 }
 
+#[derive(Debug)]
 pub struct TimeWithReference {
     pub value: Time,
     pub references: HashSet<String>,
@@ -41,6 +42,7 @@ pub enum ResolveError {
     InstancesArrayNotSupported((String, &'static str)),
     ResolvedWhilePending(String),
     ResolvedWhileResolvec(String),
+    UnresolvedObjects(Vec<String>),
 }
 
 pub struct ResolvingTimelineObject {

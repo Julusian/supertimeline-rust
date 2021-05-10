@@ -217,7 +217,11 @@ pub fn resolve_timeline(
         }
     }
 
-    Ok(resolved_timeline)
+    if !unresolved_ids.is_empty() {
+        Err(ResolveError::UnresolvedObjects(unresolved_ids))
+    } else {
+        Ok(resolved_timeline)
+    }
 }
 
 #[cfg(test)]
@@ -352,12 +356,12 @@ mod tests {
                 NextEvent {
                     event_type: EventType::Start,
                     object_id: "graphic1".to_string(),
-                    time: 20, // 30, // TODO - urgent
+                    time: 30,
                 },
                 NextEvent {
                     event_type: EventType::End,
                     object_id: "graphic1".to_string(),
-                    time: 35, // 45, // TODO - urgent
+                    time: 45,
                 },
                 NextEvent {
                     event_type: EventType::End,
@@ -399,7 +403,7 @@ mod tests {
         assert_instances(
             &obj_graphics1.instances,
             &vec![Rc::new(TimelineObjectInstance {
-                start: 20, // 30, // TODO - urgent
+                start: 30,
                 // end: Some(45), // TODO allow-ends
                 ..Default::default()
             })],
@@ -427,12 +431,12 @@ mod tests {
                     NextEvent {
                         event_type: EventType::Start,
                         object_id: "graphic1".to_string(),
-                        time: 20, // 30, // TODO - urgent
+                        time: 30,
                     },
                     NextEvent {
                         event_type: EventType::End,
                         object_id: "graphic1".to_string(),
-                        time: 35, // 45, // TODO - urgent
+                        time: 45,
                     },
                     NextEvent {
                         event_type: EventType::End,
