@@ -258,7 +258,7 @@ impl ResolverContext for ResolvedTimeline {
             };
 
             let looked_up_repeating =
-                lookup_expression(self, &obj, &repeating_expr, &ObjectRefType::Duration);
+                lookup_expression(self, &obj, &repeating_expr, &ObjectRefType::Duration)?;
             direct_references.extend(looked_up_repeating.all_references);
 
             let looked_up_repeating2 = match looked_up_repeating.result {
@@ -294,7 +294,7 @@ impl ResolverContext for ResolvedTimeline {
                 has_parent = true;
 
                 let expr = Expression::String(format!(r"#{}", parent_id));
-                let lookup = lookup_expression(self, &obj, &expr, &ObjectRefType::Start);
+                let lookup = lookup_expression(self, &obj, &expr, &ObjectRefType::Start)?;
                 match lookup.result {
                     LookupExpressionResultType::TimeRef(_) => {}
                     LookupExpressionResultType::Instances(instances) => {
@@ -311,7 +311,7 @@ impl ResolverContext for ResolvedTimeline {
                 }
             }
 
-            let lookup_start = lookup_expression(self, &obj, &start, &ObjectRefType::Start);
+            let lookup_start = lookup_expression(self, &obj, &start, &ObjectRefType::Start)?;
             direct_references.extend(lookup_start.all_references);
 
             let looked_up_starts = if refer_to_parent {
@@ -386,7 +386,7 @@ impl ResolverContext for ResolvedTimeline {
                     };
 
                     // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
-                    let lookup_end = lookup_expression(self, &obj, &end_expr, &ObjectRefType::End);
+                    let lookup_end = lookup_expression(self, &obj, &end_expr, &ObjectRefType::End)?;
                     let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
                         apply_parent_instances(self, &parent_instances, &lookup_end.result)
                     } else {
@@ -432,7 +432,7 @@ impl ResolverContext for ResolvedTimeline {
                         }
                     };
                     let lookup_duration =
-                        lookup_expression(self, &obj, &duration_expr, &ObjectRefType::Duration);
+                        lookup_expression(self, &obj, &duration_expr, &ObjectRefType::Duration)?;
 
                     direct_references.extend(lookup_duration.all_references);
 
@@ -632,14 +632,6 @@ mod tests {
         }
     }
 
-    fn assert_events(result: &Vec<NextEvent>, expected: &Vec<NextEvent>) {
-        assert_eq!(result, expected);
-
-        // for (val, exp) in result.iter().zip(expected) {
-        //     assert_eq!(val, exp);
-        // }
-    }
-
     fn assert_obj_on_layer(state: &TimelineState, layer: &str, id: &str) {
         let obj = state
             .layers
@@ -693,7 +685,7 @@ mod tests {
         let resolved = resolve_timeline(&timeline, options).expect("Resolve timeline failed");
         let states = resolve_all_states(&resolved, None).expect("Resolve states failed");
 
-        assert_events(
+        assert_eq!(
             &states.next_events,
             &vec![
                 NextEvent {
@@ -773,7 +765,7 @@ mod tests {
             let state0 = get_state(&states, 15, None);
             assert_obj_on_layer(&state0, "0", "video");
             assert_obj_on_layer(&state0, "1", "graphic0");
-            assert_events(
+            assert_eq!(
                 &state0.next_events,
                 &vec![
                     NextEvent {

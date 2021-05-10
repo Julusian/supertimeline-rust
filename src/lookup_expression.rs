@@ -1,3 +1,4 @@
+use crate::resolver::ResolveError;
 use crate::api::ResolverContext;
 use crate::caps::{Cap, CapsBuilder};
 use crate::events::{IsEvent, VecIsEventExt};
@@ -41,22 +42,22 @@ pub fn lookup_expression(
     obj: &ResolvedTimelineObject,
     expr: &Expression,
     default_ref_type: &ObjectRefType,
-) -> LookupExpressionResult {
+) -> Result<LookupExpressionResult, ResolveError> {
     match expr {
-        Expression::Null => LookupExpressionResult::null(),
-        Expression::Number(time) => LookupExpressionResult {
+        Expression::Null => Ok(LookupExpressionResult::null()),
+        Expression::Number(time) => Ok(LookupExpressionResult {
             result: LookupExpressionResultType::TimeRef(TimeWithReference {
                 value: 0i64.max(*time).unsigned_abs(), // Clamp to not go below 0
                 references: HashSet::new(),
             }),
             all_references: HashSet::new(),
-        },
+        }),
         Expression::String(str) => lookup_expression_str(ctx, obj, str, default_ref_type),
         Expression::Expression(expr_obj) => {
             lookup_expression_obj(ctx, obj, expr_obj, default_ref_type)
         }
         Expression::Invert(inner_expr) => {
-            let inner_res = lookup_expression(ctx, obj, inner_expr, default_ref_type);
+            let inner_res = lookup_expression(ctx, obj, inner_expr, default_ref_type)?;
 
             let inner_res2 = match inner_res.result {
                 LookupExpressionResultType::Null => LookupExpressionResultType::Null,
@@ -68,10 +69,10 @@ pub fn lookup_expression(
                 }
             };
 
-            LookupExpressionResult {
+            Ok(LookupExpressionResult {
                 result: inner_res2,
                 all_references: inner_res.all_references,
-            }
+            })
         }
     }
 }
@@ -125,7 +126,7 @@ fn lookup_expression_str(
     obj: &ResolvedTimelineObject,
     expr_str: &str,
     default_ref_type: &ObjectRefType,
-) -> LookupExpressionResult {
+) -> Result<LookupExpressionResult, ResolveError> {
     // TODO
     // if (isConstant(expr)) {
     //     if (expr.match(/^true$/i)) {
@@ -192,7 +193,8 @@ fn lookup_expression_str(
             if ref_type == ObjectRefType::Duration {
                 let mut instance_durations = Vec::new();
                 for ref_obj in referenced_objs {
-                    ctx.resolve_object(ref_obj);
+                    ctx.resolve_object(ref_obj)?;
+                    
                     let obj_is_self_referencing = obj.is_self_referencing();
                     let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
                     match &*locked_ref {
@@ -238,19 +240,20 @@ fn lookup_expression_str(
                     };
                 }
 
-                LookupExpressionResult {
+                Ok(LookupExpressionResult {
                     result: result
                         .and_then(|time_ref| Some(LookupExpressionResultType::TimeRef(time_ref)))
                         .unwrap_or(LookupExpressionResultType::Null),
                     all_references: expression_references.all_references,
-                }
+                })
             } else {
                 let mut return_instances: Vec<TimelineObjectInstance> = Vec::new();
 
                 let invert_and_ignore_first_if_zero = ref_type == ObjectRefType::End;
 
                 for ref_obj in referenced_objs {
-                    ctx.resolve_object(ref_obj);
+                    ctx.resolve_object(ref_obj)?;
+
                     let obj_is_self_referencing = obj.is_self_referencing();
                     let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
                     match &*locked_ref {
@@ -284,22 +287,22 @@ fn lookup_expression_str(
                         return_instances = clean_instances(ctx, &return_instances, true, true);
                     }
 
-                    LookupExpressionResult {
+                    Ok(LookupExpressionResult {
                         result: LookupExpressionResultType::Instances(return_instances),
                         all_references: expression_references.all_references,
-                    }
+                    })
                 } else {
-                    LookupExpressionResult {
+                    Ok(LookupExpressionResult {
                         result: LookupExpressionResultType::Null,
                         all_references: expression_references.all_references,
-                    }
+                    })
                 }
             }
         } else {
-            LookupExpressionResult::null()
+            Ok(LookupExpressionResult::null())
         }
     } else {
-        LookupExpressionResult::null()
+        Ok(LookupExpressionResult::null())
     }
 }
 
@@ -308,12 +311,12 @@ fn lookup_expression_obj(
     obj: &ResolvedTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
-) -> LookupExpressionResult {
+) -> Result<LookupExpressionResult, ResolveError> {
     if expr.l == Expression::Null || expr.r == Expression::Null {
-        LookupExpressionResult::null()
+        Ok(LookupExpressionResult::null())
     } else {
-        let l = lookup_expression(ctx, obj, &expr.l, default_ref_type);
-        let r = lookup_expression(ctx, obj, &expr.r, default_ref_type);
+        let l = lookup_expression(ctx, obj, &expr.l, default_ref_type)?;
+        let r = lookup_expression(ctx, obj, &expr.r, default_ref_type)?;
 
         let all_references = HashSet::from_iter(
             l.all_references
@@ -414,10 +417,10 @@ fn lookup_expression_obj(
                 }
             }
 
-            LookupExpressionResult {
+            Ok(LookupExpressionResult {
                 result: LookupExpressionResultType::Instances(instances),
                 all_references,
-            }
+            })
         } else {
             let operator: fn(a: &TimeWithReference, b: &TimeWithReference) -> Option<Time> =
                 match expr.o {
@@ -461,10 +464,10 @@ fn lookup_expression_obj(
 
             let result = operate_on_arrays(ctx, &l.result, &r.result, &operator2);
 
-            LookupExpressionResult {
+            Ok(LookupExpressionResult {
                 result,
                 all_references,
-            }
+            })
         }
     }
 }
