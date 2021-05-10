@@ -9,5 +9,6 @@ edition = "2018"
 [dependencies]
 regex = "1"
 lazy_static = "1.4.0"
+velcro = "0.5.3"
 
 [dev-dependencies]

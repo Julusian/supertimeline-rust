@@ -234,6 +234,7 @@ mod tests {
     use crate::state::TimelineState;
     use crate::state::{EventType, NextEvent};
     use std::rc::Rc;
+    use std::sync::Mutex;
 
     #[derive(Default)]
     struct SimpleTimelineObj {
@@ -274,14 +275,15 @@ mod tests {
     }
 
     fn assert_instances(
-        result: &Vec<Rc<TimelineObjectInstance>>,
+        result: &HashMap<String, Rc<Mutex<TimelineObjectInstance>>>,
         expected: &Vec<Rc<TimelineObjectInstance>>,
     ) {
         assert_eq!(result.len(), expected.len());
 
         for (val, exp) in result.iter().zip(expected) {
-            assert_eq!(val.start, exp.start);
-            assert_eq!(val.end, exp.end);
+            let val1 = val.1.try_lock().unwrap();
+            assert_eq!(val1.start, exp.start);
+            assert_eq!(val1.end, exp.end);
 
             // TODO - more props
         }
@@ -388,7 +390,7 @@ mod tests {
             &obj_video.instances,
             &vec![Rc::new(TimelineObjectInstance {
                 start: 0,
-                // end: Some(100), // TODO allow-ends
+                end: Some(100),
                 ..Default::default()
             })],
         );
@@ -396,7 +398,7 @@ mod tests {
             &obj_graphics0.instances,
             &vec![Rc::new(TimelineObjectInstance {
                 start: 10,
-                // end: Some(20), // TODO allow-ends
+                end: Some(20),
                 ..Default::default()
             })],
         );
@@ -404,7 +406,7 @@ mod tests {
             &obj_graphics1.instances,
             &vec![Rc::new(TimelineObjectInstance {
                 start: 30,
-                // end: Some(45), // TODO allow-ends
+                end: Some(45),
                 ..Default::default()
             })],
         );
@@ -450,7 +452,7 @@ mod tests {
         {
             let state0 = get_state(&states, 21, None);
             assert_obj_on_layer(&state0, "0", "video");
-            // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+            assert!(state0.layers.get("1").is_none()); // TODO - urgent
         }
 
         {
