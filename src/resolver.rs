@@ -105,7 +105,7 @@ impl<'a> ResolverContext<'a> {
 
     pub fn generate_id(&self) -> String {
         let index = self.next_id.fetch_add(1, Ordering::Relaxed);
-        format!("{}", index)
+        format!("@{}", index)
     }
 
     pub fn get_object(&self, id: &str) -> Option<&ResolvingTimelineObject> {

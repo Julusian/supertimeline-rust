@@ -43,8 +43,8 @@ pub struct ResolvedStates {
     // TODO - some of these below are excessive and need clarifying what they now are
     /** Map of all objects on timeline */
     pub objects: HashMap<String, ResolvedStatesForObject>,
-    /** Map of all classes on timeline, maps className to object ids */
-    pub classes: HashMap<String, Vec<String>>,
+    // /** Map of all classes on timeline, maps className to object ids */
+    // pub classes: HashMap<String, Vec<String>>,
     /** Map of the object ids, per layer */
     pub layers: HashMap<String, Vec<String>>,
 }
@@ -314,7 +314,7 @@ pub fn resolve_all_states(
 
         objects: HashMap::new(),
         layers: HashMap::new(),
-        classes: HashMap::new(),
+        // classes: HashMap::new(),
     };
 
     // /** The objects in aspiringInstances  */
@@ -433,12 +433,12 @@ pub fn resolve_all_states(
 
                     // Now, the one on top has the throne
                     // Update current state:
-                    let current_on_top_of_layer = layer_aspiring_instances.first();
-                    let prev_obj = current_state.get(&obj.info.layer);
+                    let new_obj_on_layer = layer_aspiring_instances.first();
+                    let prev_obj_on_layer = current_state.get(&obj.info.layer);
 
                     let replace_old_obj =
-                        if let Some(current_on_top_of_layer) = current_on_top_of_layer {
-                            if let Some(prev_obj) = prev_obj {
+                        if let Some(current_on_top_of_layer) = new_obj_on_layer {
+                            if let Some(prev_obj) = prev_obj_on_layer {
                                 !prev_obj.info.id.eq(&current_on_top_of_layer.info.id)
                                     || !prev_obj
                                         .instance
@@ -450,16 +450,16 @@ pub fn resolve_all_states(
                         } else {
                             false
                         };
-                    let remove_old_obj = prev_obj.is_some() && current_on_top_of_layer.is_none();
+                    let remove_old_obj = prev_obj_on_layer.is_some() && new_obj_on_layer.is_none();
 
                     if replace_old_obj || remove_old_obj {
-                        if let Some(prev_obj) = prev_obj {
+                        if let Some(prev_obj_on_layer) = prev_obj_on_layer {
                             // Cap the old instance, so it'll end at this point in time:
                             // TODO - this needs enabling, but its going to be such a pain! Lets get some tests passing first
                             // set_instance_end_time(&mut prev_obj.instance, time);
 
                             // Update activeObjIds:
-                            active_object_ids.remove(&prev_obj.info.id);
+                            active_object_ids.remove(&prev_obj_on_layer.info.id);
 
                             // Add to nextEvents:
                             let add_event =
@@ -468,7 +468,7 @@ pub fn resolve_all_states(
                                 resolved_states.next_events.push(NextEvent {
                                     event_type: EventType::End,
                                     time,
-                                    object_id: prev_obj.info.id.clone(),
+                                    object_id: prev_obj_on_layer.info.id.clone(),
                                 });
                                 if let Some(end) = instance.end {
                                     event_object_times.insert(end);
@@ -479,7 +479,7 @@ pub fn resolve_all_states(
                     if replace_old_obj {
                         // Set the new object to State
 
-                        let current_on_top_of_layer = current_on_top_of_layer.unwrap(); // TODO - eww
+                        let current_on_top_of_layer = new_obj_on_layer.unwrap(); // TODO - eww
 
                         // Construct a new object clone:
                         let new_obj = {
@@ -630,6 +630,7 @@ pub fn resolve_all_states(
             if let Some(parent_obj) = parent_obj {
                 if !parent_obj.info.layer.is_empty() {
                     // keyframe is on an active object
+                    // TODO - how do we know that parent_obj and parent_obj_instance are related? there is no check here
                     if let Some(parent_obj_instance) = current_state.get(&parent_obj.info.layer) {
                         if active_keyframes_checked.insert(obj_id.clone()) {
                             // hasn't started before
