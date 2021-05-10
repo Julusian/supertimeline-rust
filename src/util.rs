@@ -1,12 +1,12 @@
-use crate::resolver::ResolverContext;
+use crate::api::ResolveOptions;
 use crate::api::DEFAULT_LIMIT_COUNT;
 use crate::caps::{Cap, CapsBuilder};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::TimelineObjectInstance;
 use crate::lookup_expression::LookupExpressionResultType;
 use crate::references::ReferencesBuilder;
+use crate::resolver::ResolverContext;
 use crate::resolver::TimeWithReference;
-use crate::state::ResolveOptions;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 

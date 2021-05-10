@@ -1,12 +1,13 @@
-use crate::resolver::ResolverContext;
 use crate::caps::{Cap, CapsBuilder};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
-use crate::instance::{TimelineObjectInstance, TimelineObjectResolveStatus};
+use crate::instance::TimelineObjectInstance;
 use crate::references::ReferencesBuilder;
 use crate::resolver::ResolveError;
-use crate::resolver::{ObjectRefType, TimeWithReference};
-use crate::state::ResolvingTimelineObject;
+use crate::resolver::ResolverContext;
+use crate::resolver::{
+    ObjectRefType, ResolvingTimelineObject, TimeWithReference, TimelineObjectResolvingStatus,
+};
 use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
 use regex::Regex;
 use std::collections::HashSet;
@@ -151,13 +152,13 @@ fn lookup_expression_str(
             if ref_obj_id.eq(&obj.info.id) {
                 let mut locked = obj.resolved.write().unwrap(); // TODO - handle error
                 match &mut *locked {
-                    TimelineObjectResolveStatus::Pending => {
+                    TimelineObjectResolvingStatus::Pending => {
                         // This is fine, we will resolve it shortly
                     }
-                    TimelineObjectResolveStatus::InProgress(progress) => {
+                    TimelineObjectResolvingStatus::InProgress(progress) => {
                         progress.is_self_referencing = true;
                     }
-                    TimelineObjectResolveStatus::Complete(_) => {
+                    TimelineObjectResolvingStatus::Complete(_) => {
                         // This is fine. Very good actually
                     }
                 };
@@ -198,13 +199,13 @@ fn lookup_expression_str(
                     let obj_is_self_referencing = obj.is_self_referencing();
                     let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
                     match &*locked_ref {
-                        TimelineObjectResolveStatus::Pending => {
+                        TimelineObjectResolvingStatus::Pending => {
                             // Nothing to do
                         }
-                        TimelineObjectResolveStatus::InProgress(_) => {
+                        TimelineObjectResolvingStatus::InProgress(_) => {
                             // Nothing to do
                         }
-                        TimelineObjectResolveStatus::Complete(res) => {
+                        TimelineObjectResolvingStatus::Complete(res) => {
                             if obj_is_self_referencing && res.is_self_referencing {
                                 // If the querying object is self-referencing, exclude any other self-referencing objects,
                                 // ignore the object
@@ -257,13 +258,13 @@ fn lookup_expression_str(
                     let obj_is_self_referencing = obj.is_self_referencing();
                     let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
                     match &*locked_ref {
-                        TimelineObjectResolveStatus::Pending => {
+                        TimelineObjectResolvingStatus::Pending => {
                             // Nothing to do
                         }
-                        TimelineObjectResolveStatus::InProgress(_) => {
+                        TimelineObjectResolvingStatus::InProgress(_) => {
                             // Nothing to do
                         }
-                        TimelineObjectResolveStatus::Complete(res) => {
+                        TimelineObjectResolvingStatus::Complete(res) => {
                             if obj_is_self_referencing && res.is_self_referencing {
                                 // If the querying object is self-referencing, exclude any other self-referencing objects,
                                 // ignore the object

@@ -1,3 +1,4 @@
+use crate::api::ResolveOptions;
 use crate::api::ResolvedTimeline;
 use crate::caps::Cap;
 use crate::events::{EventForInstance, EventForInstanceExt};
@@ -5,14 +6,12 @@ use crate::expression::interpret_expression;
 use crate::expression::is_constant;
 use crate::expression::ExpressionError;
 use crate::expression::{simplify_expression, Expression};
+use crate::instance::TimelineObjectInfo;
 use crate::instance::TimelineObjectInstance;
-use crate::instance::TimelineObjectResolveStatus;
 use crate::instance::TimelineObjectResolved;
 use crate::instance::TimelineObjectResolvedWip;
 use crate::lookup_expression::{lookup_expression, LookupExpressionResultType};
 use crate::references::ReferencesBuilder;
-use crate::state::ResolveOptions;
-use crate::state::ResolvingTimelineObject;
 use crate::util::apply_parent_instances;
 use crate::util::apply_repeating_instances;
 use crate::util::cap_instance;
@@ -21,6 +20,7 @@ use core::cmp::min;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::RwLock;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ObjectRefType {
@@ -41,6 +41,37 @@ pub enum ResolveError {
     InstancesArrayNotSupported((String, &'static str)),
     ResolvedWhilePending(String),
     ResolvedWhileResolvec(String),
+}
+
+pub struct ResolvingTimelineObject {
+    // pub object: Box<dyn IsTimelineObject>,
+    pub resolved: RwLock<TimelineObjectResolvingStatus>,
+    pub info: TimelineObjectInfo,
+}
+impl ResolvingTimelineObject {
+    pub fn is_self_referencing(&self) -> bool {
+        let locked = self.resolved.read().unwrap(); // TODO - handle error
+        locked.is_self_referencing()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum TimelineObjectResolvingStatus {
+    Pending,
+    InProgress(TimelineObjectResolvedWip),
+    Complete(TimelineObjectResolved),
+}
+impl TimelineObjectResolvingStatus {
+    pub fn is_self_referencing(&self) -> bool {
+        match self {
+            TimelineObjectResolvingStatus::Pending => {
+                // Clearly not
+                false
+            }
+            TimelineObjectResolvingStatus::InProgress(progress) => progress.is_self_referencing,
+            TimelineObjectResolvingStatus::Complete(res) => res.is_self_referencing,
+        }
+    }
 }
 
 // TODO - this should be split into a result and a context
@@ -90,21 +121,21 @@ impl<'a> ResolverContext<'a> {
         {
             let mut current_status = obj.resolved.write().unwrap(); // TODO - handle error
             match &mut *current_status {
-                TimelineObjectResolveStatus::Complete(_) => {
+                TimelineObjectResolvingStatus::Complete(_) => {
                     // Already resolved
                     return Ok(());
                 }
-                TimelineObjectResolveStatus::InProgress(progress) => {
+                TimelineObjectResolvingStatus::InProgress(progress) => {
                     // In progress means we hit a circular route
                     // TODO - this will need to track callers/something when threading
                     progress.is_self_referencing = true;
 
                     return Err(ResolveError::CircularDependency(obj.info.id.to_string()));
                 }
-                TimelineObjectResolveStatus::Pending => {
+                TimelineObjectResolvingStatus::Pending => {
                     // Mark it as in progress, and release the lock
                     *current_status =
-                        TimelineObjectResolveStatus::InProgress(TimelineObjectResolvedWip {
+                        TimelineObjectResolvingStatus::InProgress(TimelineObjectResolvedWip {
                             is_self_referencing: false,
                         });
                 }
@@ -425,16 +456,16 @@ impl<'a> ResolverContext<'a> {
 
         let mut locked_result = obj.resolved.write().unwrap(); // TODO - handle error
         match &*locked_result {
-            TimelineObjectResolveStatus::Pending => {
+            TimelineObjectResolvingStatus::Pending => {
                 // Resolving hasn't been started, so something has messed up
                 Err(ResolveError::ResolvedWhilePending(obj.info.id.clone()))
             }
-            TimelineObjectResolveStatus::Complete(_) => {
+            TimelineObjectResolvingStatus::Complete(_) => {
                 // Resolving has already been completed, so something has messed up
                 Err(ResolveError::ResolvedWhileResolvec(obj.info.id.clone()))
             }
-            TimelineObjectResolveStatus::InProgress(progress) => {
-                *locked_result = TimelineObjectResolveStatus::Complete(TimelineObjectResolved {
+            TimelineObjectResolvingStatus::InProgress(progress) => {
+                *locked_result = TimelineObjectResolvingStatus::Complete(TimelineObjectResolved {
                     is_self_referencing: progress.is_self_referencing,
 
                     instances: filtered_instances,

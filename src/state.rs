@@ -2,7 +2,6 @@ use crate::api::ResolvedTimeline;
 use crate::instance::ResolvedTimelineObjectInstances;
 use crate::instance::TimelineObjectInfo;
 use crate::instance::TimelineObjectInstance;
-use crate::instance::TimelineObjectResolveStatus;
 use crate::instance::TimelineObjectResolved;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
@@ -14,7 +13,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::sync::RwLock;
 
 #[derive(PartialEq, Debug, Clone, PartialOrd)]
 pub enum EventType {
@@ -30,37 +28,10 @@ pub struct NextEvent {
     pub object_id: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct ResolveOptions {
-    /** The base time to use when resolving. Usually you want to input the current time (Date.now()) here. */
-    pub time: Time,
-    /** Limits the number of repeating objects in the future.
-     * Defaults to 2, which means that the current one and the next will be resolved.
-     */
-    pub limit_count: Option<usize>,
-    /** Limits the repeating objects to a time in the future */
-    pub limit_time: Option<Time>,
-    // /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
-    // pub resolve_instance_collisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
-    //                                        // cache?: ResolverCache
-}
-
-pub struct ResolvingTimelineObject {
-    // pub object: Box<dyn IsTimelineObject>,
-    pub resolved: RwLock<TimelineObjectResolveStatus>,
-    pub info: TimelineObjectInfo,
-}
 pub struct ResolvedTimelineObject {
     // pub object: Box<dyn IsTimelineObject>,
     pub resolved: TimelineObjectResolved,
     pub info: TimelineObjectInfo,
-}
-
-impl ResolvingTimelineObject {
-    pub fn is_self_referencing(&self) -> bool {
-        let locked = self.resolved.read().unwrap(); // TODO - handle error
-        locked.is_self_referencing()
-    }
 }
 
 pub type AllStates = HashMap<String, HashMap<Time, ResolvedTimelineObjectEntry>>;

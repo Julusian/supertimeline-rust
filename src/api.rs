@@ -1,11 +1,10 @@
 use crate::instance::TimelineEnable;
 use crate::instance::TimelineObjectInfo;
-use crate::instance::TimelineObjectResolveStatus;
 use crate::resolver::ResolveError;
 use crate::resolver::ResolverContext;
-use crate::state::ResolveOptions;
+use crate::resolver::{ResolvingTimelineObject, TimelineObjectResolvingStatus};
 use crate::state::ResolvedTimelineObject;
-use crate::state::ResolvingTimelineObject;
+use crate::util::Time;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -35,6 +34,21 @@ pub trait IsTimelineKeyframe {
     //fn duration (&self) -> Option<TimelineKeyframeDuration>;
     fn classes(&self) -> Option<&Vec<String>>;
     fn disabled(&self) -> bool;
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolveOptions {
+    /** The base time to use when resolving. Usually you want to input the current time (Date.now()) here. */
+    pub time: Time,
+    /** Limits the number of repeating objects in the future.
+     * Defaults to 2, which means that the current one and the next will be resolved.
+     */
+    pub limit_count: Option<usize>,
+    /** Limits the repeating objects to a time in the future */
+    pub limit_time: Option<Time>,
+    // /** If set to true, the resolver will go through the instances of the objects and fix collisions, so that the instances more closely resembles the end state. */
+    // pub resolve_instance_collisions: bool, // /** A cache thet is to persist data between resolves. If provided, will increase performance of resolving when only making small changes to the timeline. */
+    //                                        // cache?: ResolverCache
 }
 
 fn add_object_to_resolved_timeline(
@@ -85,7 +99,7 @@ fn add_object_to_timeline(
     // if (resolvedTimeline.objects[obj.id]) throw Error(`All timelineObjects must be unique! (duplicate: "${obj.id}")`)
 
     let resolved_obj = ResolvingTimelineObject {
-        resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
+        resolved: RwLock::new(TimelineObjectResolvingStatus::Pending),
         info: TimelineObjectInfo {
             id: obj.id().to_string(),
             enable: obj.enable().clone(),
@@ -116,7 +130,7 @@ fn add_object_to_timeline(
     if let Some(keyframes) = obj.keyframes() {
         for keyframe in keyframes {
             let resolved_obj = ResolvingTimelineObject {
-                resolved: RwLock::new(TimelineObjectResolveStatus::Pending),
+                resolved: RwLock::new(TimelineObjectResolvingStatus::Pending),
                 info: TimelineObjectInfo {
                     id: keyframe.id().to_string(),
                     enable: keyframe.enable().clone(),
@@ -184,13 +198,13 @@ pub fn resolve_timeline(
     for (id, obj) in resolver_context.objects.into_iter() {
         let inner = obj.resolved.into_inner().unwrap(); // TODO - handle error
         match inner {
-            TimelineObjectResolveStatus::Pending => {
+            TimelineObjectResolvingStatus::Pending => {
                 unresolved_ids.push(id);
             }
-            TimelineObjectResolveStatus::InProgress(_) => {
+            TimelineObjectResolvingStatus::InProgress(_) => {
                 unresolved_ids.push(id);
             }
-            TimelineObjectResolveStatus::Complete(res) => {
+            TimelineObjectResolvingStatus::Complete(res) => {
                 resolved_timeline.objects.insert(
                     id,
                     ResolvedTimelineObject {

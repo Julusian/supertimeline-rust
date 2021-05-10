@@ -30,25 +30,6 @@ pub struct ResolvedTimelineObjectInstances {
 }
 
 #[derive(Debug, Clone)]
-pub enum TimelineObjectResolveStatus {
-    Pending,
-    InProgress(TimelineObjectResolvedWip),
-    Complete(TimelineObjectResolved),
-}
-impl TimelineObjectResolveStatus {
-    pub fn is_self_referencing(&self) -> bool {
-        match self {
-            TimelineObjectResolveStatus::Pending => {
-                // Clearly not
-                false
-            }
-            TimelineObjectResolveStatus::InProgress(progress) => progress.is_self_referencing,
-            TimelineObjectResolveStatus::Complete(res) => res.is_self_referencing,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct TimelineObjectInfo {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
@@ -72,7 +53,7 @@ pub struct TimelineObjectResolvedWip {
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectResolved {
-    // pub status: Rc<Atomic<TimelineObjectResolveStatus>>,
+    // pub status: Rc<Atomic<TimelineObjectResolvingStatus>>,
     /** True if object is referencing itself (only directly, not indirectly via another object) */
     pub is_self_referencing: bool,
 
