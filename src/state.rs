@@ -22,7 +22,7 @@ pub enum EventType {
     KeyFrame = 2,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NextEvent {
     pub event_type: EventType,
     pub time: Time,
@@ -88,12 +88,21 @@ pub struct TimelineState {
     pub next_events: Vec<NextEvent>,
 }
 
-pub fn get_state(resolved: ResolvedStates, time: Time, event_limit: usize) -> TimelineState {
-    let event_limit2 = if event_limit == 0 {
-        event_limit
+pub fn get_state(
+    resolved: &ResolvedStates,
+    time: Time,
+    event_limit: Option<usize>,
+) -> TimelineState {
+    let event_limit2 = if let Some(event_limit) = event_limit {
+        if event_limit == 0 {
+            usize::MAX
+        } else {
+            event_limit
+        }
     } else {
         usize::MAX
     };
+
     let next_events = resolved
         .next_events
         .iter()
@@ -162,6 +171,7 @@ fn get_state_at_time_for_layer(
 
 // -------
 
+#[derive(Debug, Clone)]
 pub enum ResolvedStatesError {
     //
 }
@@ -173,7 +183,7 @@ struct PointInTime {
     obj: Rc<ResolvedTimelineObjectInstance>,
 }
 
-pub fn resolve_states(
+pub fn resolve_all_states(
     resolved: &ResolvedTimeline,
     only_for_time: Option<Time>,
 ) -> Result<ResolvedStates, ResolvedStatesError> {
@@ -345,6 +355,7 @@ pub fn resolve_states(
         sorted_points_in_time.sort_by_key(|e| e.0);
         sorted_points_in_time
     };
+
     for (time, instances_to_check) in sorted_points_in_time {
         let mut checked_objects_this_time = HashSet::new();
 

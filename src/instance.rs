@@ -4,20 +4,20 @@ use crate::util::Time;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectEntry {
     pub instance: Rc<ResolvedTimelineObjectInstance>,
     pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstanceKeyframe {
     pub instance: ResolvedTimelineObjectInstance,
     //pub is_keyframe: bool,
     pub keyframe_end_time: Option<Time>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstance {
     pub info: TimelineObjectResolveInfo,
     pub instance: Rc<TimelineObjectInstance>,
@@ -82,7 +82,7 @@ pub struct TimelineObjectResolved {
     pub direct_references: HashSet<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TimelineObjectInstance {
     /** id of the instance (unique)  */
     pub id: String,
@@ -111,7 +111,7 @@ pub struct TimelineObjectInstance {
     pub from_instance_id: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TimelineEnable {
     /** (Optional) The start time of the object. (Cannot be combined with .while) */
     pub enable_start: Option<Expression>,

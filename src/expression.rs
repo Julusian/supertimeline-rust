@@ -313,13 +313,12 @@ enum WrappedWords<'a> {
     Group(Vec<WrappedWords<'a>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ExpressionError {
     MismatchedParenthesis,
     Invalid,
     MissingOperator,
     InvalidOperator,
-    Test(Option<ExpressionOperator>),
 }
 
 fn wrap_expression(words: Vec<&str>) -> Result<Vec<WrappedWords>, ExpressionError> {

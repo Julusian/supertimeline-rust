@@ -309,7 +309,7 @@ where
 
 pub fn apply_repeating_instances(
     ctx: &dyn ResolverContext,
-    instances: &Vec<TimelineObjectInstance>,
+    instances: Vec<TimelineObjectInstance>,
     repeat_time: Option<TimeWithReference>,
     options: &ResolveOptions,
 ) -> Vec<TimelineObjectInstance> {
@@ -326,7 +326,7 @@ pub fn apply_repeating_instances(
         //     }]
         // }
 
-        for instance in instances {
+        for instance in &instances {
             let mut start_time = max(
                 options.time - ((options.time - instance.start) % repeat_time.value),
                 instance.start,
@@ -390,7 +390,7 @@ pub fn apply_repeating_instances(
 
         clean_instances(ctx, &repeated_instances, false, false)
     } else {
-        instances.clone()
+        instances
     }
 }
 

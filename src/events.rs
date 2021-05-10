@@ -53,6 +53,7 @@ impl<T: IsEvent> VecIsEventExt for Vec<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct EventForInstance {
     pub time: Time,
     pub is_start: bool,

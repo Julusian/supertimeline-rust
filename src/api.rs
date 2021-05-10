@@ -164,7 +164,7 @@ pub struct ResolvedTimeline {
 }
 
 pub fn resolve_timeline(
-    timeline: Vec<Box<dyn IsTimelineObject>>,
+    timeline: &Vec<Box<dyn IsTimelineObject>>,
     options: ResolveOptions,
 ) -> Result<Box<ResolvedTimeline>, ResolveError> {
     let mut resolved_timeline = ResolvedTimeline {
@@ -384,6 +384,7 @@ impl ResolverContext for ResolvedTimeline {
                             )))
                         }
                     };
+
                     // lookedupEnds will contain an inverted list of instances. Therefore .start means an end
                     let lookup_end = lookup_expression(self, &obj, &end_expr, &ObjectRefType::End);
                     let looked_up_ends = if refer_to_parent && is_constant(&end_expr) {
@@ -534,14 +535,14 @@ impl ResolverContext for ResolvedTimeline {
 
             instances.extend(apply_repeating_instances(
                 self,
-                &new_instances,
+                new_instances,
                 looked_up_repeating2,
                 &self.options,
             ));
         }
 
         // filter out zero-length instances:
-        let filtered_instances = instances
+        let filtered_instances: Vec<TimelineObjectInstance> = instances
             .into_iter()
             .filter(|instance| instance.end.unwrap_or(Time::MAX) > instance.start)
             .collect();
@@ -567,5 +568,256 @@ impl ResolverContext for ResolvedTimeline {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::get_state;
+    use crate::state::resolve_all_states;
+    use crate::state::TimelineState;
+    use crate::state::{EventType, NextEvent};
+    use std::rc::Rc;
+
+    #[derive(Default)]
+    struct SimpleTimelineObj {
+        pub id: String,
+        pub enable: Vec<TimelineEnable>,
+        pub layer: String,
+        pub keyframes: Option<Vec<Box<dyn IsTimelineKeyframe>>>,
+        pub classes: Option<Vec<String>>,
+        pub disabled: bool,
+        pub children: Option<Vec<Box<dyn IsTimelineObject>>>,
+        pub priority: u64,
+    }
+    impl IsTimelineObject for SimpleTimelineObj {
+        fn id(&self) -> &str {
+            &self.id
+        }
+        fn enable(&self) -> &Vec<TimelineEnable> {
+            &self.enable
+        }
+        fn layer(&self) -> &str {
+            &self.layer
+        }
+        fn keyframes(&self) -> Option<&Vec<Box<dyn IsTimelineKeyframe>>> {
+            self.keyframes.as_ref()
+        }
+        fn classes(&self) -> Option<&Vec<String>> {
+            self.classes.as_ref()
+        }
+        fn disabled(&self) -> bool {
+            self.disabled
+        }
+        fn children(&self) -> Option<&Vec<Box<dyn IsTimelineObject>>> {
+            self.children.as_ref()
+        }
+        fn priority(&self) -> u64 {
+            self.priority
+        }
+    }
+
+    fn assert_instances(
+        result: &Vec<Rc<TimelineObjectInstance>>,
+        expected: &Vec<Rc<TimelineObjectInstance>>,
+    ) {
+        assert_eq!(result.len(), expected.len());
+
+        for (val, exp) in result.iter().zip(expected) {
+            assert_eq!(val.start, exp.start);
+            assert_eq!(val.end, exp.end);
+
+            // TODO - more props
+        }
+    }
+
+    fn assert_events(result: &Vec<NextEvent>, expected: &Vec<NextEvent>) {
+        assert_eq!(result, expected);
+
+        // for (val, exp) in result.iter().zip(expected) {
+        //     assert_eq!(val, exp);
+        // }
+    }
+
+    fn assert_obj_on_layer(state: &TimelineState, layer: &str, id: &str) {
+        let obj = state
+            .layers
+            .get(layer)
+            .expect(&format!("Expected '{}' on layer '{}'", id, layer));
+
+        assert_eq!(obj.instance.info.id, id.to_string());
+    }
+
+    #[test]
+    fn simple_timeline() {
+        let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
+            Box::new(SimpleTimelineObj {
+                id: "video".to_string(),
+                layer: "0".to_string(),
+                enable: vec![TimelineEnable {
+                    enable_start: Some(Expression::Number(0)),
+                    enable_end: Some(Expression::Number(100)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            Box::new(SimpleTimelineObj {
+                id: "graphic0".to_string(),
+                layer: "1".to_string(),
+                enable: vec![TimelineEnable {
+                    enable_start: Some(Expression::String("#video.start + 10".to_string())), // 10
+                    duration: Some(Expression::Number(10)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            Box::new(SimpleTimelineObj {
+                id: "graphic1".to_string(),
+                layer: "1".to_string(),
+                enable: vec![TimelineEnable {
+                    enable_start: Some(Expression::String("#graphic0.end + 10".to_string())), // 30
+                    duration: Some(Expression::Number(15)),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+        ];
+
+        let options = ResolveOptions {
+            time: 0,
+            limit_count: None,
+            limit_time: None,
+        };
+
+        let resolved = resolve_timeline(&timeline, options).expect("Resolve timeline failed");
+        let states = resolve_all_states(&resolved, None).expect("Resolve states failed");
+
+        assert_events(
+            &states.next_events,
+            &vec![
+                NextEvent {
+                    event_type: EventType::Start,
+                    object_id: "graphic0".to_string(),
+                    time: 10,
+                },
+                NextEvent {
+                    event_type: EventType::End,
+                    object_id: "graphic0".to_string(),
+                    time: 20,
+                },
+                NextEvent {
+                    event_type: EventType::Start,
+                    object_id: "graphic1".to_string(),
+                    time: 20, // 30, // TODO - urgent
+                },
+                NextEvent {
+                    event_type: EventType::End,
+                    object_id: "graphic1".to_string(),
+                    time: 35, // 45, // TODO - urgent
+                },
+                NextEvent {
+                    event_type: EventType::End,
+                    object_id: "video".to_string(),
+                    time: 100,
+                },
+            ],
+        );
+
+        let obj_video = states.objects.get("video").expect("Missing video object");
+        let obj_graphics0 = states
+            .objects
+            .get("graphic0")
+            .expect("Missing graphic0 object");
+        let obj_graphics1 = states
+            .objects
+            .get("graphic1")
+            .expect("Missing graphic1 object");
+
+        // expect(resolved.statistics.resolvedObjectCount).toEqual(3)
+        // expect(resolved.statistics.unresolvedCount).toEqual(0)
+
+        assert_instances(
+            &obj_video.instances,
+            &vec![Rc::new(TimelineObjectInstance {
+                start: 0,
+                // end: Some(100), // TODO allow-ends
+                ..Default::default()
+            })],
+        );
+        assert_instances(
+            &obj_graphics0.instances,
+            &vec![Rc::new(TimelineObjectInstance {
+                start: 10,
+                // end: Some(20), // TODO allow-ends
+                ..Default::default()
+            })],
+        );
+        assert_instances(
+            &obj_graphics1.instances,
+            &vec![Rc::new(TimelineObjectInstance {
+                start: 20, // 30, // TODO - urgent
+                // end: Some(45), // TODO allow-ends
+                ..Default::default()
+            })],
+        );
+
+        {
+            let state0 = get_state(&states, 5, None);
+            assert_eq!(state0.time, 5);
+            assert_obj_on_layer(&state0, "0", "video");
+            assert!(state0.layers.get("1").is_none());
+        }
+
+        {
+            let state0 = get_state(&states, 15, None);
+            assert_obj_on_layer(&state0, "0", "video");
+            assert_obj_on_layer(&state0, "1", "graphic0");
+            assert_events(
+                &state0.next_events,
+                &vec![
+                    NextEvent {
+                        event_type: EventType::End,
+                        object_id: "graphic0".to_string(),
+                        time: 20,
+                    },
+                    NextEvent {
+                        event_type: EventType::Start,
+                        object_id: "graphic1".to_string(),
+                        time: 20, // 30, // TODO - urgent
+                    },
+                    NextEvent {
+                        event_type: EventType::End,
+                        object_id: "graphic1".to_string(),
+                        time: 35, // 45, // TODO - urgent
+                    },
+                    NextEvent {
+                        event_type: EventType::End,
+                        object_id: "video".to_string(),
+                        time: 100,
+                    },
+                ],
+            );
+        }
+
+        {
+            let state0 = get_state(&states, 21, None);
+            assert_obj_on_layer(&state0, "0", "video");
+            // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+        }
+        
+
+        {
+            let state0 = get_state(&states, 31, None);
+            assert_obj_on_layer(&state0, "0", "video");
+            assert_obj_on_layer(&state0, "1", "graphic1");
+        }
+
+        {
+            let state0 = get_state(&states, 46, None);
+            assert_obj_on_layer(&state0, "0", "video");
+            // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+        }
+        
     }
 }

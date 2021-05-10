@@ -14,6 +14,7 @@ pub struct TimeWithReference {
     pub references: HashSet<String>,
 }
 
+#[derive(Debug, Clone)]
 pub enum ResolveError {
     CircularDependency(String),
     BadExpression((String, &'static str, ExpressionError)),
