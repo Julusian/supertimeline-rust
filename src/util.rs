@@ -194,12 +194,13 @@ where
     T: Fn(Option<&TimeWithReference>, Option<&TimeWithReference>) -> Option<TimeWithReference>,
 {
     let lookup0_converted = get_converted_array_to_operate(lookup0);
-    if let Some(lookup0) =
-        get_existing_array_to_operate(lookup0).or_else(|| lookup0_converted.as_ref())
+    let lookup0_orig = get_existing_array_to_operate(lookup0);
+    if let Some(lookup0) = lookup0_orig.or_else(|| lookup0_converted.as_ref())
     {
         let lookup1_converted = get_converted_array_to_operate(lookup1);
-        if let Some(lookup1) =
-            get_existing_array_to_operate(lookup1).or_else(|| lookup1_converted.as_ref())
+        let lookup1_orig = get_existing_array_to_operate(lookup1);
+
+        if let Some(lookup1) =lookup1_orig.or_else(|| lookup1_converted.as_ref())
         {
             // TODO - both refs shortcut
             // if (
@@ -211,86 +212,99 @@ where
 
             let mut result = Vec::new();
 
+            let lookup0_len = if let Some(l) = lookup0_orig { l.len() } else { usize::MAX }; 
+            let lookup1_len = if let Some(l) = lookup1_orig { l.len() } else { usize::MAX }; 
+
+            let min_length = if lookup0_len == usize::MAX && lookup1_len == usize::MAX { 1 } else { min(lookup0_len, lookup1_len) };
+
             // let min_length = min(lookup0.len(), lookup1.len());
             // Iterate through both until we run out of one
-            for (a, b) in lookup0.iter().zip(lookup1.iter()) {
-                let start = if a.is_first {
-                    Some(TimeWithReference {
-                        value: a.start,
-                        references: a.references.clone(),
-                    })
-                } else if b.is_first {
-                    Some(TimeWithReference {
-                        value: b.start,
-                        references: b.references.clone(),
-                    })
-                } else {
-                    operate(
-                        Some(&TimeWithReference {
-                            value: a.start,
-                            references: ReferencesBuilder::new()
-                                .add(&a.references)
-                                .add_id(&a.id)
-                                .done(),
-                        }),
-                        Some(&TimeWithReference {
-                            value: b.start,
-                            references: ReferencesBuilder::new()
-                                .add(&b.references)
-                                .add_id(&b.id)
-                                .done(),
-                        }),
-                    )
-                };
+            for i in 0..min_length {
+                let a = lookup0.get(i).or_else(|| lookup0.get(0));
+                let b = lookup1.get(i).or_else(|| lookup1.get(0));
+                if let Some(a) = a {
+                    if let Some(b ) = b {
 
-                if let Some(start) = start {
-                    let end = if a.is_first {
-                        a.end.map(|end| TimeWithReference {
-                            value: end,
-                            references: a.references.clone(),
-                        })
-                    } else if b.is_first {
-                        b.end.map(|end| TimeWithReference {
-                            value: end,
-                            references: b.references.clone(),
-                        })
-                    } else {
-                        let a_end = a.end.map(|end| TimeWithReference {
-                            value: end,
-                            references: ReferencesBuilder::new()
-                                .add(&a.references)
-                                .add_id(&a.id)
-                                .done(),
-                        });
-                        let b_end = b.end.map(|end| TimeWithReference {
-                            value: end,
-                            references: ReferencesBuilder::new()
-                                .add(&b.references)
-                                .add_id(&b.id)
-                                .done(),
-                        });
+                        let start = if a.is_first {
+                            Some(TimeWithReference {
+                                value: a.start,
+                                references: a.references.clone(),
+                            })
+                        } else if b.is_first {
+                            Some(TimeWithReference {
+                                value: b.start,
+                                references: b.references.clone(),
+                            })
+                        } else {
+                            operate(
+                                Some(&TimeWithReference {
+                                    value: a.start,
+                                    references: ReferencesBuilder::new()
+                                        .add(&a.references)
+                                        .add_id(&a.id)
+                                        .done(),
+                                }),
+                                Some(&TimeWithReference {
+                                    value: b.start,
+                                    references: ReferencesBuilder::new()
+                                        .add(&b.references)
+                                        .add_id(&b.id)
+                                        .done(),
+                                }),
+                            )
+                        };
 
-                        operate(a_end.as_ref(), b_end.as_ref())
-                    };
+                        if let Some(start) = start {
+                            let end = if a.is_first {
+                                a.end.map(|end| TimeWithReference {
+                                    value: end,
+                                    references: a.references.clone(),
+                                })
+                            } else if b.is_first {
+                                b.end.map(|end| TimeWithReference {
+                                    value: end,
+                                    references: b.references.clone(),
+                                })
+                            } else {
+                                let a_end = a.end.map(|end| TimeWithReference {
+                                    value: end,
+                                    references: ReferencesBuilder::new()
+                                        .add(&a.references)
+                                        .add_id(&a.id)
+                                        .done(),
+                                });
+                                let b_end = b.end.map(|end| TimeWithReference {
+                                    value: end,
+                                    references: ReferencesBuilder::new()
+                                        .add(&b.references)
+                                        .add_id(&b.id)
+                                        .done(),
+                                });
 
-                    result.push(TimelineObjectInstance {
-                        id: ctx.generate_id(),
-                        start: start.value,
-                        end: end.as_ref().map(|e| e.value),
-                        references: ReferencesBuilder::new()
-                            .add(&start.references)
-                            .add_some2(end.map(|e| e.references))
-                            .done(),
-                        caps: CapsBuilder::new()
-                            .add(a.caps.iter().cloned())
-                            .add(b.caps.iter().cloned())
-                            .done(),
+                                operate(a_end.as_ref(), b_end.as_ref())
+                            };
 
-                        is_first: false,
-                        original_start: None,
-                        original_end: None,
-                        from_instance_id: None,
-                    })
+                            result.push(TimelineObjectInstance {
+                                id: ctx.generate_id(),
+                                start: start.value,
+                                end: end.as_ref().map(|e| e.value),
+                                references: ReferencesBuilder::new()
+                                    .add(&start.references)
+                                    .add_some2(end.map(|e| e.references))
+                                    .done(),
+                                caps: CapsBuilder::new()
+                                    .add(a.caps.iter().cloned())
+                                    .add(b.caps.iter().cloned())
+                                    .done(),
+
+                                is_first: false,
+                                original_start: None,
+                                original_end: None,
+                                from_instance_id: None,
+                            })
+                        }
+                    }
+
                 }
             }
 

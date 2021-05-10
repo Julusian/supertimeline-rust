@@ -39,7 +39,8 @@ impl ReferencesBuilder {
         self
     }
 
-    pub fn done(self) -> HashSet<String> {
+    pub fn done(mut self) -> HashSet<String> {
+        self.value.retain(|v| !v.eq(""));
         self.value
     }
 }
