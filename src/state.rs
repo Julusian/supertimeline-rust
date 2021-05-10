@@ -584,7 +584,7 @@ pub fn resolve_all_states(
                             }
 
                             // Make the instance id unique:
-                            for (instance_id, _instance) in &new_obj.instances {
+                            for instance_id in new_obj.instances.keys() {
                                 if instance_id.eq(&new_instance.id) {
                                     new_instance.id =
                                         format!("{}_${}", new_instance.id, new_obj.instances.len());

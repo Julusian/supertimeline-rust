@@ -9,8 +9,6 @@ pub fn assert_instances(
     result: &HashMap<String, Rc<Mutex<TimelineObjectInstance>>>,
     expected: &Vec<Rc<TimelineObjectInstance>>,
 ) {
-    assert_eq!(result.len(), expected.len());
-
     let mut result_vec: Vec<TimelineObjectInstance> = result
         .values()
         .map(|v| {
@@ -28,7 +26,16 @@ pub fn assert_instances(
         }
     });
 
-    for (val, exp) in result_vec.iter().zip(expected) {
+    assert_instances2(&result_vec, expected);
+}
+
+pub fn assert_instances2(
+    result: &Vec<TimelineObjectInstance>,
+    expected: &Vec<Rc<TimelineObjectInstance>>,
+) {
+    assert_eq!(result.len(), expected.len());
+
+    for (val, exp) in result.iter().zip(expected) {
         assert_eq!(val.start, exp.start);
         assert_eq!(val.end, exp.end);
 

@@ -195,7 +195,7 @@ pub fn resolve_timeline(
 
     let mut unresolved_ids = Vec::new();
 
-    // TODO - convert the objects/instances
+    // convert the objects/instances, and verify everything resolved
     for (id, obj) in resolver_context.objects.into_iter() {
         let inner = obj.resolved.into_inner().unwrap(); // TODO - handle error
         match inner {
