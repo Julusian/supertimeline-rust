@@ -68,16 +68,23 @@ pub struct ResolvedTimelineObjectInstance {
 }
 
 #[derive(Debug, Clone)]
+pub struct TimelineLayerState2 {
+    pub object_id: String,
+    pub instance: Rc<TimelineObjectInstance>, // TODO - this is a bit heavy now?
+    pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
+}
+
+#[derive(Debug, Clone)]
 pub struct TimelineLayerState {
-    pub info: Rc<TimelineObjectInfo>,
-    pub instance_id: String,
-    pub instance: Rc<Mutex<TimelineObjectInstance>>, // TODO - this is a bit heavy now?
+    pub object_id: String,
+    pub instance_id: Option<String>, // TODO - these both being Option<> is horrible
+    pub instance: Option<Rc<Mutex<TimelineObjectInstance>>>, // TODO - this is a bit heavy now?
     pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
 }
 
 pub struct TimelineState {
     pub time: Time,
-    pub layers: HashMap<String, TimelineLayerState>,
+    pub layers: HashMap<String, TimelineLayerState2>,
     pub next_events: Vec<NextEvent>,
 }
 
@@ -123,7 +130,7 @@ fn get_state_at_time_for_layer(
     states: &AllStates,
     layer_id: &str,
     request_time: Time,
-) -> Option<TimelineLayerState> {
+) -> Option<TimelineLayerState2> {
     if let Some(layer_states) = states.get(layer_id) {
         let layer_contents = {
             let mut tmp = layer_states.iter().collect::<Vec<_>>();
@@ -131,28 +138,41 @@ fn get_state_at_time_for_layer(
             tmp
         };
 
-        let mut best_state: Option<TimelineLayerState> = None;
+        let mut best_state: Option<TimelineLayerState2> = None;
 
         for (time, current_state_instances) in layer_contents {
             if *time <= request_time {
-                let mut keyframes = current_state_instances.keyframes.clone();
-                keyframes.retain(|keyframe| {
-                    if let Some(parent_id) = &keyframe.info.parent_id {
-                        if parent_id.eq(&current_state_instances.instance_id)
-                            && keyframe.keyframe_end_time.unwrap_or(Time::MAX) > request_time
-                        {
-                            // Apply the keyframe on the state:
-                            return true;
-                        }
-                    }
+                let no_instance = if let Some(instance) = &current_state_instances.instance {
+                    let instance2 = instance.lock().unwrap(); // TODO - eww
+
+                    best_state = Some(TimelineLayerState2 {
+                        object_id: current_state_instances.object_id.clone(),
+                        instance: Rc::new((*instance2).clone()),
+                        keyframes: Vec::new(),
+                    });
                     false
-                });
-                best_state = Some(TimelineLayerState {
-                    info: current_state_instances.info.clone(),
-                    instance_id: current_state_instances.instance_id.clone(),
-                    instance: current_state_instances.instance.clone(),
-                    keyframes,
-                });
+                } else {
+                    true
+                };
+
+                if current_state_instances.keyframes.is_empty() && no_instance {
+                    best_state = None;
+                } else if let Some(current_state) = &mut best_state {
+                    let mut keyframes = current_state_instances.keyframes.clone();
+                    keyframes.retain(|keyframe| {
+                        if let Some(parent_id) = &keyframe.info.parent_id {
+                            if parent_id.eq(&current_state.object_id)
+                                && keyframe.keyframe_end_time.unwrap_or(Time::MAX) > request_time
+                            {
+                                // Apply the keyframe on the state:
+                                return true;
+                            }
+                        }
+                        false
+                    });
+
+                    current_state.keyframes.extend(keyframes);
+                }
             } else {
                 break;
             }
@@ -282,7 +302,7 @@ pub fn resolve_all_states(
     // Also add keyframes to pointsInTime:
     for obj in &resolved_objects {
         if !obj.info.disabled
-            && !obj.info.layer.is_empty()
+            // && !obj.info.layer.is_empty()
             && obj.info.is_keyframe
             && obj.info.parent_id.is_some()
         {
@@ -804,14 +824,23 @@ fn set_state_at_time(
         layer_states.insert(
             time,
             TimelineLayerState {
-                info: instance.info.clone(),
-                instance_id: instance.instance_id.clone(),
-                instance: instance.instance.clone(),
+                object_id: instance.info.id.clone(),
+                instance_id: Some(instance.instance_id.clone()),
+                instance: Some(instance.instance.clone()),
                 keyframes: Vec::new(),
             },
         );
     } else {
-        layer_states.remove(&time);
+        // TODO - this is messy, but it works
+        layer_states.insert(
+            time,
+            TimelineLayerState {
+                object_id: "".to_string(),
+                instance_id: None,
+                instance: None,
+                keyframes: Vec::new(),
+            },
+        );
     }
 }
 
@@ -823,8 +852,14 @@ fn add_keyframe_at_time(
 ) {
     let layer_states = states.entry(layer.to_string()).or_default();
 
-    // TODO - this isnt as perfect as before, as it would create the entry with just the kf
-    if let Some(time_state) = layer_states.get_mut(&time) {
-        time_state.keyframes.push(instance.clone());
-    }
+    let time_state = layer_states
+        .entry(time)
+        .or_insert_with(|| TimelineLayerState {
+            object_id: instance.info.id.clone(),
+            instance_id: None,
+            instance: None,
+            keyframes: Vec::new(),
+        });
+
+    time_state.keyframes.push(instance.clone());
 }

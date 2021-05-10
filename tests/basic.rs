@@ -2,13 +2,14 @@ extern crate supertimeline;
 mod objs;
 mod util;
 
-use crate::util::assert_obj_on_layer;
-use supertimeline::get_state;
-use crate::util::assert_instances;
-use supertimeline::TimelineObjectInstance;
+use crate::objs::SimpleKeyframe;
 use crate::objs::SimpleTimelineObj;
+use crate::util::assert_instances;
+use crate::util::assert_obj_on_layer;
 use std::collections::HashSet;
 use std::rc::Rc;
+use supertimeline::get_state;
+use supertimeline::TimelineObjectInstance;
 use supertimeline::{
     resolve_all_states, resolve_timeline, EventType, Expression, IsTimelineObject, NextEvent,
     ResolveOptions, TimelineEnable,
@@ -168,7 +169,7 @@ fn simple_timeline() {
     {
         let state0 = get_state(&states, 21, None);
         assert_obj_on_layer(&state0, "0", "video");
-        // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+        assert!(state0.layers.get("1").is_none());
     }
 
     {
@@ -180,7 +181,7 @@ fn simple_timeline() {
     {
         let state0 = get_state(&states, 46, None);
         assert_obj_on_layer(&state0, "0", "video");
-        // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+        assert!(state0.layers.get("1").is_none());
     }
 }
 
@@ -377,13 +378,12 @@ fn repeating_object() {
     {
         let state0 = get_state(&states, 39, None);
         assert_obj_on_layer(&state0, "0", "video");
-        // assert!(state0.layers.get("1").is_none()); // TODO - urgent
+        assert!(state0.layers.get("1").is_none());
     }
 
     {
         let state0 = get_state(&states, 51, None);
         assert_obj_on_layer(&state0, "0", "video");
-        // assert_obj_on_layer(&state0, "1", "graphic0");
     }
 
     {
@@ -894,85 +894,111 @@ fn reference_own_class() {
 
 #[test]
 fn continuous_combined_negated_and_normal_classes_on_different_objects() {
-    let mut timeline: Vec<Box<dyn IsTimelineObject>> = vec![
+    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
         Box::new(SimpleTimelineObj {
-            id: "video0".to_string(),
-            layer: "0".to_string(),
+            id: "parent".to_string(),
+            layer: "p0".to_string(),
+            priority: 0,
             enable: vec![TimelineEnable {
-                enable_start: Some(Expression::Number(0)),
-                duration: Some(Expression::Number(8)),
+                enable_while: Some(Expression::Number(1)),
                 ..Default::default()
             }],
-            classes: vec!["insert_after".to_string()],
+            keyframes: vec![Box::new(SimpleKeyframe {
+                id: "kf0".to_string(),
+                enable: vec![TimelineEnable {
+                    enable_while: Some(Expression::String(".playout & !.muted".to_string())),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })],
             ..Default::default()
         }),
         Box::new(SimpleTimelineObj {
-            id: "video1".to_string(),
-            layer: "1".to_string(),
+            id: "muted_playout1".to_string(),
+            layer: "2".to_string(),
+            priority: 0,
             enable: vec![TimelineEnable {
-                // Play for 2 after each other object with class 'insert_after'
-                enable_start: Some(Expression::String(".insert_after.end".to_string())),
-                duration: Some(Expression::Number(2)),
+                enable_start: Some(Expression::String("100".to_string())),
+                duration: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            classes: vec!["insert_after".to_string()],
+            classes: vec!["playout".to_string(), "muted".to_string()],
             ..Default::default()
         }),
         Box::new(SimpleTimelineObj {
-            id: "video2".to_string(),
-            layer: "1".to_string(),
+            id: "muted_playout2".to_string(),
+            layer: "2".to_string(),
+            priority: 0,
             enable: vec![TimelineEnable {
-                // Play for 2 after each other object on layer 0
-                enable_start: Some(Expression::String(".insert_after.end + 1".to_string())),
-                duration: Some(Expression::Number(2)),
+                enable_start: Some(Expression::String("200".to_string())),
+                duration: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            classes: vec!["insert_after".to_string()],
+            classes: vec!["playout".to_string(), "muted".to_string()],
+            ..Default::default()
+        }),
+        Box::new(SimpleTimelineObj {
+            id: "unmuted_playout1".to_string(),
+            layer: "2".to_string(),
+            priority: 0,
+            enable: vec![TimelineEnable {
+                enable_start: Some(Expression::String("300".to_string())),
+                duration: Some(Expression::Number(100)),
+                ..Default::default()
+            }],
+            classes: vec!["playout".to_string()],
             ..Default::default()
         }),
     ];
 
-    for _ in 0..2 {
-        timeline.reverse();
-        assert_eq!(timeline.len(), 3);
+    let options = ResolveOptions {
+        time: 0,
+        limit_count: Some(10),
+        limit_time: Some(999),
+    };
 
-        let options = ResolveOptions {
-            time: 0,
-            limit_count: Some(100),
-            limit_time: Some(99999),
-        };
+    let resolved = resolve_timeline(&timeline, options).expect("Resolve timeline failed");
+    let states = resolve_all_states(&resolved, None).expect("Resolve states failed");
 
-        let resolved = resolve_timeline(&timeline, options).expect("Resolve timeline failed");
-        let states = resolve_all_states(&resolved, None).expect("Resolve states failed");
+    states.objects.get("parent").expect("Missing parent object");
+    states
+        .objects
+        .get("muted_playout1")
+        .expect("Missing muted_playout1 object");
+    states
+        .objects
+        .get("muted_playout2")
+        .expect("Missing muted_playout2 object");
+    states
+        .objects
+        .get("unmuted_playout1")
+        .expect("Missing unmuted_playout1 object");
 
-        let obj_video0 = states.objects.get("video0").expect("Missing video0 object");
-        let obj_video1 = states.objects.get("video1").expect("Missing video1 object");
-        let obj_video2 = states.objects.get("video2").expect("Missing video2 object");
+    {
+        let state0 = get_state(&states, 50, None);
+        let layer = state0.layers.get("p0").expect("Missing state for layer p0");
+        assert_eq!(layer.object_id, "parent");
+        assert_eq!(layer.keyframes.len(), 0);
+    }
 
-        assert_instances(
-            &obj_video0.instances,
-            &vec![Rc::new(TimelineObjectInstance {
-                start: 0,
-                end: Some(8),
-                ..Default::default()
-            })],
-        );
-        assert_instances(
-            &obj_video1.instances,
-            &vec![Rc::new(TimelineObjectInstance {
-                start: 8,
-                end: Some(9), // becuse it's overridden by video2
-                original_end: Some(10),
-                ..Default::default()
-            })],
-        );
-        assert_instances(
-            &obj_video2.instances,
-            &vec![Rc::new(TimelineObjectInstance {
-                start: 9,
-                end: Some(11),
-                ..Default::default()
-            })],
-        );
+    {
+        let state0 = get_state(&states, 150, None);
+        let layer = state0.layers.get("p0").expect("Missing state for layer p0");
+        assert_eq!(layer.object_id, "parent");
+        assert_eq!(layer.keyframes.len(), 0);
+    }
+
+    {
+        let state0 = get_state(&states, 250, None);
+        let layer = state0.layers.get("p0").expect("Missing state for layer p0");
+        assert_eq!(layer.object_id, "parent");
+        assert_eq!(layer.keyframes.len(), 0);
+    }
+
+    {
+        let state0 = get_state(&states, 350, None);
+        let layer = state0.layers.get("p0").expect("Missing state for layer p0");
+        assert_eq!(layer.object_id, "parent");
+        assert_eq!(layer.keyframes.len(), 1);
     }
 }

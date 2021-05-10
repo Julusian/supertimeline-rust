@@ -49,5 +49,5 @@ pub fn assert_obj_on_layer(state: &TimelineState, layer: &str, id: &str) {
         .get(layer)
         .expect(&format!("Expected '{}' on layer '{}'", id, layer));
 
-    assert_eq!(obj.info.id, id.to_string());
+    assert_eq!(obj.object_id, id.to_string());
 }

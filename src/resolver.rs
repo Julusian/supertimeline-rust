@@ -217,8 +217,6 @@ impl<'a> ResolverContext<'a> {
             let lookup_start = lookup_expression(self, &obj, &start, &ObjectRefType::Start)?;
             direct_references.extend(lookup_start.all_references);
 
-            println!("{:?}", lookup_start.result);
-
             let looked_up_starts = if refer_to_parent {
                 apply_parent_instances(self, &parent_instances, &lookup_start.result)
             } else {

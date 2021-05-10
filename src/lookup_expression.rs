@@ -60,8 +60,6 @@ pub fn lookup_expression(
         Expression::Invert(inner_expr) => {
             let inner_res = lookup_expression(ctx, obj, inner_expr, default_ref_type)?;
 
-            println!("aa {:?}", inner_res.result);
-
             let inner_res2 = match inner_res.result {
                 LookupExpressionResultType::Null => {
                     LookupExpressionResultType::Instances(invert_instances(ctx, &[]))
@@ -333,6 +331,7 @@ fn lookup_expression_obj(
         if expr.o == ExpressionOperator::And || expr.o == ExpressionOperator::Or {
             let events = {
                 let mut events = Vec::new();
+                // TODO - this looks to be getting a load of 'junk' events?
                 events.extend(get_side_events(&l, true));
                 events.extend(get_side_events(&r, false));
                 events.sort();
@@ -472,6 +471,7 @@ fn lookup_expression_obj(
     }
 }
 
+#[derive(Debug)]
 struct SideEvent<'a> {
     time: Time,
     is_left: bool,
@@ -502,7 +502,7 @@ fn get_side_events(res: &LookupExpressionResult, is_left: bool) -> Vec<SideEvent
                 if let Some(end) = instance.end {
                     if end == instance.start {
                         // event doesn't actually exist...
-                        break;
+                        continue;
                     }
 
                     events.push(SideEvent {
