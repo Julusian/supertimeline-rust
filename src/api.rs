@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use crate::instance::TimelineEnable;
 use crate::instance::TimelineObjectInfo;
 use crate::resolver::ResolveError;
@@ -7,6 +6,7 @@ use crate::resolver::{ResolvingTimelineObject, TimelineObjectResolvingStatus};
 use crate::state::ResolvedTimelineObject;
 use crate::util::Time;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::RwLock;
 
 pub const DEFAULT_LIMIT_COUNT: usize = 2;
@@ -56,7 +56,7 @@ fn add_object_to_resolved_timeline(
     timeline: &mut ResolvedTimeline,
     resolving_objects: &mut HashMap<String, ResolvingTimelineObject>,
     obj: ResolvingTimelineObject,
-    raw_obj: Option<&Box<dyn IsTimelineObject>>,
+    raw_obj: Option<&dyn IsTimelineObject>,
 ) {
     let obj_id = obj.info.id.to_string();
 
@@ -74,7 +74,7 @@ fn add_object_to_resolved_timeline(
         }
 
         let obj_layer = raw_obj.layer();
-        if obj_layer.len() > 0 {
+        if !obj_layer.is_empty() {
             if let Some(existing) = timeline.layers.get_mut(obj_layer) {
                 existing.push(obj_id.clone());
             } else {
@@ -92,7 +92,7 @@ fn add_object_to_resolved_timeline(
 fn add_object_to_timeline(
     timeline: &mut ResolvedTimeline,
     resolving_objects: &mut HashMap<String, ResolvingTimelineObject>,
-    obj: &Box<dyn IsTimelineObject>,
+    obj: &dyn IsTimelineObject,
     depth: usize,
     parent_id: Option<&String>,
 ) {
@@ -108,7 +108,7 @@ fn add_object_to_timeline(
             disabled: obj.disabled(),
             layer: obj.layer().to_string(),
 
-            depth: depth,
+            depth,
             parent_id: parent_id.cloned(),
             is_keyframe: false,
         },
@@ -120,7 +120,7 @@ fn add_object_to_timeline(
             add_object_to_timeline(
                 timeline,
                 resolving_objects,
-                child,
+                child.as_ref(),
                 depth + 1,
                 Some(&resolved_obj.info.id),
             );
@@ -162,7 +162,7 @@ pub struct ResolvedTimeline {
 }
 
 pub fn resolve_timeline(
-    timeline: &Vec<Box<dyn IsTimelineObject>>,
+    timeline: &[Box<dyn IsTimelineObject>],
     options: ResolveOptions,
 ) -> Result<Box<ResolvedTimeline>, ResolveError> {
     let mut resolved_timeline = Box::new(ResolvedTimeline {
@@ -178,7 +178,7 @@ pub fn resolve_timeline(
         add_object_to_timeline(
             &mut resolved_timeline,
             &mut resolving_objects,
-            &obj,
+            obj.as_ref(),
             0,
             None,
         );

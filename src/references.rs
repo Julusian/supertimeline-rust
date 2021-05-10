@@ -34,8 +34,8 @@ impl ReferencesBuilder {
         self
     }
 
-    pub fn add_id(mut self, id: &String) -> ReferencesBuilder {
-        self.value.insert(id.clone());
+    pub fn add_id(mut self, id: &str) -> ReferencesBuilder {
+        self.value.insert(id.to_string());
         self
     }
 

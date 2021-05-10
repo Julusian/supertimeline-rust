@@ -183,16 +183,10 @@ impl<'a> ResolverContext<'a> {
                 enable
                     .enable_while
                     .as_ref()
-                    .or(enable.enable_start.as_ref())
+                    .or_else(|| enable.enable_start.as_ref())
                     .unwrap_or(&Expression::Null),
             )
-            .or_else(|e| {
-                Err(ResolveError::BadExpression((
-                    obj_id.to_string(),
-                    "simplify",
-                    e,
-                )))
-            })?;
+            .map_err(|e| ResolveError::BadExpression((obj_id.to_string(), "simplify", e)))?;
 
             let mut parent_instances = None;
             let mut has_parent = false;
@@ -257,7 +251,7 @@ impl<'a> ResolverContext<'a> {
                     LookupExpressionResultType::Instances(instances) => {
                         for instance in instances {
                             let index = i_start;
-                            i_start = i_start + 1;
+                            i_start += 1;
 
                             events.push(EventForInstance {
                                 time: instance.start,
@@ -305,7 +299,7 @@ impl<'a> ResolverContext<'a> {
                         LookupExpressionResultType::Instances(instances) => {
                             for instance in instances {
                                 let index = i_end;
-                                i_end = i_end + 1;
+                                i_end += 1;
 
                                 events.push(EventForInstance {
                                     time: instance.start,
@@ -382,7 +376,7 @@ impl<'a> ResolverContext<'a> {
                                     time: event.time + duration_val,
                                     is_start: false,
                                     id: event.id.clone(),
-                                    references: references,
+                                    references,
                                     caps: vec![],
                                 })
                             }
@@ -391,7 +385,7 @@ impl<'a> ResolverContext<'a> {
                     }
                 }
 
-                new_instances.extend(events.to_instances(self, false, false));
+                new_instances.extend(events.into_instances(self, false, false));
             }
 
             if has_parent {
@@ -408,7 +402,7 @@ impl<'a> ResolverContext<'a> {
                         if let Some(referred_parent_instance) = referred_parent_instance {
                             // If the child refers to its parent, there should be one specific instance to cap into
                             let capped_instance =
-                                cap_instance(instance, &vec![referred_parent_instance]);
+                                cap_instance(instance, &[referred_parent_instance]);
 
                             if let Some(mut capped_instance) = capped_instance {
                                 capped_instance.caps.push(Cap {
@@ -421,8 +415,7 @@ impl<'a> ResolverContext<'a> {
                         } else {
                             // If the child doesn't refer to its parent, it should be capped within all of its parent instances
                             for parent_instance in parent_instances {
-                                let capped_instance =
-                                    cap_instance(instance, &vec![&parent_instance]);
+                                let capped_instance = cap_instance(instance, &[&parent_instance]);
 
                                 if let Some(mut capped_instance) = capped_instance {
                                     capped_instance.caps.push(Cap {
@@ -469,7 +462,7 @@ impl<'a> ResolverContext<'a> {
                     is_self_referencing: progress.is_self_referencing,
 
                     instances: filtered_instances,
-                    direct_references: direct_references,
+                    direct_references,
                 });
 
                 Ok(())

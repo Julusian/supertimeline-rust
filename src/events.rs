@@ -76,7 +76,7 @@ impl IsEvent for EventForInstance {
 }
 
 pub trait EventForInstanceExt {
-    fn to_instances(
+    fn into_instances(
         self,
         ctx: &ResolverContext,
         allow_merge: bool,
@@ -84,7 +84,7 @@ pub trait EventForInstanceExt {
     ) -> Vec<TimelineObjectInstance>;
 }
 impl EventForInstanceExt for Vec<EventForInstance> {
-    fn to_instances(
+    fn into_instances(
         mut self,
         ctx: &ResolverContext,
         allow_merge: bool,
@@ -129,7 +129,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         && last_instance.end.is_none()
                         && !active_instance_id
                             .as_ref()
-                            .and_then(|aiid| Some(aiid.eq(&event_id)))
+                            .map(|aiid| aiid.eq(&event_id))
                             .unwrap_or(false)
                     {
                         // Start a new instance:
@@ -151,7 +151,7 @@ impl EventForInstanceExt for Vec<EventForInstance> {
                         && !event.is_start
                         && active_instance_id
                             .as_ref()
-                            .and_then(|aiid| Some(aiid.eq(&event_id)))
+                            .map(|aiid| aiid.eq(&event_id))
                             .unwrap_or(false)
                     {
                         // The active instance stopped playing, but another is still playing

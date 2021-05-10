@@ -107,11 +107,11 @@ pub fn get_state(
         }
     }
 
-    return TimelineState {
+    TimelineState {
         time,
         layers,
         next_events,
-    };
+    }
 }
 
 fn get_state_at_time_for_layer(
@@ -133,14 +133,14 @@ fn get_state_at_time_for_layer(
                 let mut keyframes = current_state_instances.keyframes.clone();
                 keyframes.retain(|keyframe| {
                     if let Some(parent_id) = &keyframe.info.parent_id {
-                        if parent_id.eq(&current_state_instances.instance.id) {
-                            if keyframe.keyframe_end_time.unwrap_or(Time::MAX) > request_time {
-                                // Apply the keyframe on the state:
-                                return true;
-                            }
+                        if parent_id.eq(&current_state_instances.instance.id)
+                            && keyframe.keyframe_end_time.unwrap_or(Time::MAX) > request_time
+                        {
+                            // Apply the keyframe on the state:
+                            return true;
                         }
                     }
-                    return false;
+                    false
                 });
                 best_state = Some(TimelineLayerState {
                     info: current_state_instances.info.clone(),
@@ -228,7 +228,7 @@ pub fn resolve_all_states(
         };
 
     for obj in &resolved_objects {
-        if !obj.info.disabled && obj.info.layer.len() > 0 && !obj.info.is_keyframe {
+        if !obj.info.disabled && !obj.info.layer.is_empty() && !obj.info.is_keyframe {
             for instance in &obj.resolved.instances {
                 let use_instance = {
                     if let Some(only_for_time) = only_for_time {
@@ -240,12 +240,11 @@ pub fn resolve_all_states(
                 };
 
                 if use_instance {
-                    let mut time_events = Vec::new();
-
-                    time_events.push(TimeEvent {
+                    let mut time_events = vec![TimeEvent {
                         time: instance.start,
                         enable: true,
-                    });
+                    }];
+
                     if let Some(end) = instance.end {
                         time_events.push(TimeEvent {
                             time: end,
@@ -277,7 +276,7 @@ pub fn resolve_all_states(
     // Also add keyframes to pointsInTime:
     for obj in &resolved_objects {
         if !obj.info.disabled
-            && obj.info.layer.len() > 0
+            && !obj.info.layer.is_empty()
             && obj.info.is_keyframe
             && obj.info.parent_id.is_some()
         {
@@ -361,7 +360,7 @@ pub fn resolve_all_states(
                     return Ordering::Less;
                 }
 
-                return Ordering::Equal;
+                Ordering::Equal
             });
             res
         };
@@ -384,7 +383,7 @@ pub fn resolve_all_states(
                             .as_ref()
                             .and_then(|parent_id| resolved.objects.get(parent_id))
                         {
-                            parent_obj.info.layer.len() == 0
+                            parent_obj.info.layer.is_empty()
                                 || active_object_ids.contains_key(&parent_obj.info.id)
                         } else {
                             to_be_enabled
@@ -395,7 +394,7 @@ pub fn resolve_all_states(
 
                     let layer_aspiring_instances = aspiring_instances
                         .entry(obj.info.layer.clone())
-                        .or_insert(Vec::new());
+                        .or_insert_with(Vec::new);
 
                     if to_be_enabled2 {
                         // The instance wants to be enabled (is starting)
@@ -423,7 +422,7 @@ pub fn resolve_all_states(
                             }
 
                             // Last resort: sort using id:
-                            return b.info.id.cmp(&a.info.id);
+                            b.info.id.cmp(&a.info.id)
                         });
                     } else {
                         // The instance doesn't want to be enabled (is ending)
@@ -463,14 +462,12 @@ pub fn resolve_all_states(
                             active_object_ids.remove(&prev_obj.info.id);
 
                             // Add to nextEvents:
-                            let add_event = only_for_time
-                                .as_ref()
-                                .and_then(|t| Some(time > *t))
-                                .unwrap_or(true);
+                            let add_event =
+                                only_for_time.as_ref().map(|t| time > *t).unwrap_or(true);
                             if add_event {
                                 resolved_states.next_events.push(NextEvent {
                                     event_type: EventType::End,
-                                    time: time,
+                                    time,
                                     object_id: prev_obj.info.id.clone(),
                                 });
                                 if let Some(end) = instance.end {
@@ -513,7 +510,7 @@ pub fn resolve_all_states(
                                 // }
 
                                 let obj_layer = &new_obj.info.layer;
-                                if obj_layer.len() > 0 {
+                                if !obj_layer.is_empty() {
                                     if let Some(existing) =
                                         resolved_states.layers.get_mut(obj_layer)
                                     {
@@ -631,7 +628,7 @@ pub fn resolve_all_states(
                 .as_ref()
                 .and_then(|parent_id| active_object_ids.get(parent_id));
             if let Some(parent_obj) = parent_obj {
-                if parent_obj.info.layer.len() > 0 {
+                if !parent_obj.info.layer.is_empty() {
                     // keyframe is on an active object
                     if let Some(parent_obj_instance) = current_state.get(&parent_obj.info.layer) {
                         if active_keyframes_checked.insert(obj_id.clone()) {
@@ -663,7 +660,7 @@ pub fn resolve_all_states(
                                     .instance
                                     .end
                                     .as_ref()
-                                    .and_then(|p_end| Some(end < *p_end))
+                                    .map(|p_end| end < *p_end)
                                     .unwrap_or(true)
                                 // Only add the keyframe if it ends before its parent
                                 {
@@ -715,7 +712,7 @@ pub fn resolve_all_states(
             return Ordering::Greater;
         }
 
-        return b.object_id.cmp(&a.object_id);
+        b.object_id.cmp(&a.object_id)
     });
 
     // if (cache && !onlyForTime) {
@@ -770,11 +767,11 @@ fn make_resolved_obj(
 
 fn set_state_at_time(
     states: &mut AllStates,
-    layer: &String,
+    layer: &str,
     time: Time,
     instance: Option<&Rc<ResolvedTimelineObjectInstance>>,
 ) {
-    let layer_states = states.entry(layer.clone()).or_default();
+    let layer_states = states.entry(layer.to_string()).or_default();
     if let Some(instance) = instance {
         layer_states.insert(
             time,
@@ -791,11 +788,11 @@ fn set_state_at_time(
 
 fn add_keyframe_at_time(
     states: &mut AllStates,
-    layer: &String,
+    layer: &str,
     time: Time,
     instance: &Rc<ResolvedTimelineObjectInstanceKeyframe>,
 ) {
-    let layer_states = states.entry(layer.clone()).or_default();
+    let layer_states = states.entry(layer.to_string()).or_default();
 
     // TODO - this isnt as perfect as before, as it would create the entry with just the kf
     if let Some(time_state) = layer_states.get_mut(&time) {

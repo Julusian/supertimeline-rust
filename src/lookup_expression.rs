@@ -11,7 +11,6 @@ use crate::resolver::{
 use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
 use regex::Regex;
 use std::collections::HashSet;
-use std::iter::FromIterator;
 
 lazy_static::lazy_static! {
     static ref MATCH_ID_REGEX: Regex = Regex::new(r"^\W*#([^.]+)(.*)").unwrap();
@@ -177,7 +176,7 @@ fn lookup_expression_str(
                 .collect::<Vec<_>>();
         }
 
-        if referenced_objs.len() > 0 {
+        if !referenced_objs.is_empty() {
             let ref_type = {
                 // TODO - these should be looser regex
                 if expression_references.remaining_expression == "start" {
@@ -243,7 +242,7 @@ fn lookup_expression_str(
 
                 Ok(LookupExpressionResult {
                     result: result
-                        .and_then(|time_ref| Some(LookupExpressionResultType::TimeRef(time_ref)))
+                        .map(|time_ref| LookupExpressionResultType::TimeRef(time_ref))
                         .unwrap_or(LookupExpressionResultType::Null),
                     all_references: expression_references.all_references,
                 })
@@ -275,7 +274,7 @@ fn lookup_expression_str(
                     }
                 }
 
-                if return_instances.len() > 0 {
+                if !return_instances.is_empty() {
                     if invert_and_ignore_first_if_zero {
                         return_instances = invert_instances(ctx, &return_instances);
 
@@ -319,12 +318,12 @@ fn lookup_expression_obj(
         let l = lookup_expression(ctx, obj, &expr.l, default_ref_type)?;
         let r = lookup_expression(ctx, obj, &expr.r, default_ref_type)?;
 
-        let all_references = HashSet::from_iter(
-            l.all_references
-                .iter()
-                .chain(r.all_references.iter())
-                .cloned(),
-        );
+        let all_references = l
+            .all_references
+            .iter()
+            .chain(r.all_references.iter())
+            .cloned()
+            .collect();
 
         if expr.o == ExpressionOperator::And || expr.o == ExpressionOperator::Or {
             let events = {
@@ -385,10 +384,7 @@ fn lookup_expression_obj(
             push_instance(0, result_value, result_references, Vec::new());
 
             for (i, event) in events.iter().enumerate() {
-                let next_time = events
-                    .get(i + 1)
-                    .and_then(|e| Some(e.time))
-                    .unwrap_or(Time::MAX);
+                let next_time = events.get(i + 1).map(|e| e.time).unwrap_or(Time::MAX);
 
                 if event.is_left {
                     left_value = event.is_start;
@@ -403,13 +399,13 @@ fn lookup_expression_obj(
 
                     if new_result_value != result_value {
                         let result_references = ReferencesBuilder::new()
-                            .add_some(left_instance.and_then(|i| Some(&i.references)))
-                            .add_some(right_instance.and_then(|i| Some(&i.references)))
+                            .add_some(left_instance.map(|i| &i.references))
+                            .add_some(right_instance.map(|i| &i.references))
                             .done();
 
                         let result_caps = CapsBuilder::new()
-                            .add_some(left_instance.and_then(|i| Some(i.caps.iter().cloned())))
-                            .add_some(right_instance.and_then(|i| Some(i.caps.iter().cloned())))
+                            .add_some(left_instance.map(|i| i.caps.iter().cloned()))
+                            .add_some(right_instance.map(|i| i.caps.iter().cloned()))
                             .done();
 
                         push_instance(event.time, new_result_value, result_references, result_caps);
@@ -446,14 +442,12 @@ fn lookup_expression_obj(
              -> Option<TimeWithReference> {
                 if let Some(a2) = a {
                     if let Some(b2) = b {
-                        operator(a2, b2).and_then(|value| {
-                            Some(TimeWithReference {
-                                value,
-                                references: ReferencesBuilder::new()
-                                    .add(&a2.references)
-                                    .add(&b2.references)
-                                    .done(),
-                            })
+                        operator(a2, b2).map(|value| TimeWithReference {
+                            value,
+                            references: ReferencesBuilder::new()
+                                .add(&a2.references)
+                                .add(&b2.references)
+                                .done(),
                         })
                     } else {
                         None

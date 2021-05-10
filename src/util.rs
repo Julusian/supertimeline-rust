@@ -14,9 +14,9 @@ pub type Time = u64;
 
 pub fn invert_instances(
     ctx: &ResolverContext,
-    instances: &Vec<TimelineObjectInstance>,
+    instances: &[TimelineObjectInstance],
 ) -> Vec<TimelineObjectInstance> {
-    if instances.len() == 0 {
+    if instances.is_empty() {
         vec![TimelineObjectInstance {
             id: ctx.generate_id(),
             is_first: true,
@@ -90,7 +90,7 @@ pub fn invert_instances(
 // Cleanup instances. Join overlaps or touching etc
 pub fn clean_instances(
     ctx: &ResolverContext,
-    instances: &Vec<TimelineObjectInstance>,
+    instances: &[TimelineObjectInstance],
     allow_merge: bool,
     allow_zero_gaps: bool,
 ) -> Vec<TimelineObjectInstance> {
@@ -126,12 +126,12 @@ pub fn clean_instances(
                 }
             }
 
-            events.to_instances(ctx, allow_merge, allow_zero_gaps)
+            events.into_instances(ctx, allow_merge, allow_zero_gaps)
         }
     }
 }
 
-pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &Vec<Cap>) {
+pub fn add_caps_to_resuming(instance: &mut TimelineObjectInstance, caps: &[Cap]) {
     let mut new_caps = Vec::new();
 
     for cap in caps {
@@ -194,9 +194,12 @@ where
     T: Fn(Option<&TimeWithReference>, Option<&TimeWithReference>) -> Option<TimeWithReference>,
 {
     let lookup0_converted = get_converted_array_to_operate(lookup0);
-    if let Some(lookup0) = get_existing_array_to_operate(lookup0).or(lookup0_converted.as_ref()) {
+    if let Some(lookup0) =
+        get_existing_array_to_operate(lookup0).or_else(|| lookup0_converted.as_ref())
+    {
         let lookup1_converted = get_converted_array_to_operate(lookup1);
-        if let Some(lookup1) = get_existing_array_to_operate(lookup1).or(lookup1_converted.as_ref())
+        if let Some(lookup1) =
+            get_existing_array_to_operate(lookup1).or_else(|| lookup1_converted.as_ref())
         {
             // TODO - both refs shortcut
             // if (
@@ -242,37 +245,29 @@ where
 
                 if let Some(start) = start {
                     let end = if a.is_first {
-                        a.end.and_then(|end| {
-                            Some(TimeWithReference {
-                                value: end,
-                                references: a.references.clone(),
-                            })
+                        a.end.map(|end| TimeWithReference {
+                            value: end,
+                            references: a.references.clone(),
                         })
                     } else if b.is_first {
-                        b.end.and_then(|end| {
-                            Some(TimeWithReference {
-                                value: end,
-                                references: b.references.clone(),
-                            })
+                        b.end.map(|end| TimeWithReference {
+                            value: end,
+                            references: b.references.clone(),
                         })
                     } else {
-                        let a_end = a.end.and_then(|end| {
-                            Some(TimeWithReference {
-                                value: end,
-                                references: ReferencesBuilder::new()
-                                    .add(&a.references)
-                                    .add_id(&a.id)
-                                    .done(),
-                            })
+                        let a_end = a.end.map(|end| TimeWithReference {
+                            value: end,
+                            references: ReferencesBuilder::new()
+                                .add(&a.references)
+                                .add_id(&a.id)
+                                .done(),
                         });
-                        let b_end = b.end.and_then(|end| {
-                            Some(TimeWithReference {
-                                value: end,
-                                references: ReferencesBuilder::new()
-                                    .add(&b.references)
-                                    .add_id(&b.id)
-                                    .done(),
-                            })
+                        let b_end = b.end.map(|end| TimeWithReference {
+                            value: end,
+                            references: ReferencesBuilder::new()
+                                .add(&b.references)
+                                .add_id(&b.id)
+                                .done(),
                         });
 
                         operate(a_end.as_ref(), b_end.as_ref())
@@ -281,10 +276,10 @@ where
                     result.push(TimelineObjectInstance {
                         id: ctx.generate_id(),
                         start: start.value,
-                        end: end.as_ref().and_then(|e| Some(e.value)),
+                        end: end.as_ref().map(|e| e.value),
                         references: ReferencesBuilder::new()
                             .add(&start.references)
-                            .add_some2(end.and_then(|e| Some(e.references)))
+                            .add_some2(end.map(|e| e.references))
                             .done(),
                         caps: CapsBuilder::new()
                             .add(a.caps.iter().cloned())
@@ -332,9 +327,7 @@ pub fn apply_repeating_instances(
                 options.time - ((options.time - instance.start) % repeat_time.value),
                 instance.start,
             );
-            let mut end_time = instance
-                .end
-                .and_then(|end| Some(end + (start_time - instance.start)));
+            let mut end_time = instance.end.map(|end| end + (start_time - instance.start));
 
             let cap = instance
                 .caps
@@ -350,12 +343,12 @@ pub fn apply_repeating_instances(
                 }
 
                 let capped_start_time = cap
-                    .and_then(|cap| Some(max(cap.start, start_time)))
+                    .map(|cap| max(cap.start, start_time))
                     .unwrap_or(start_time);
                 let capped_end_time = if let Some(end_time) = end_time {
                     Some(
                         cap.and_then(|cap| cap.end)
-                            .and_then(|cap_end| Some(min(cap_end, end_time)))
+                            .map(|cap_end| min(cap_end, end_time))
                             .unwrap_or(end_time),
                     )
                 } else {
@@ -431,8 +424,7 @@ pub fn apply_parent_instances(
 
 pub fn cap_instance(
     instance: &TimelineObjectInstance,
-    // TODO - this should not be a vec
-    parent_instances: &Vec<&TimelineObjectInstance>,
+    parent_instances: &[&TimelineObjectInstance],
 ) -> Option<TimelineObjectInstance> {
     let mut parent: Option<&TimelineObjectInstance> = None;
 

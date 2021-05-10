@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
 
-const OPERATORS: &'static [&'static str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
+const OPERATORS: &[&str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
 
 lazy_static::lazy_static! {
     static ref OPERATOR_REGEX: Regex = {
@@ -94,7 +94,7 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
         }
         Expression::Null => Ok(Expression::Null),
         Expression::Invert(inner_expr) => {
-            simplify_expression(inner_expr).and_then(|e| Ok(Expression::Invert(Box::new(e))))
+            simplify_expression(inner_expr).map(|e| Expression::Invert(Box::new(e)))
         }
 
         Expression::Number(val) => Ok(Expression::Number(*val)),
@@ -140,7 +140,7 @@ pub fn interpret_expression(expression: &Expression) -> Result<Expression, Expre
             .wrap())
         }
         Expression::Invert(inner_expr) => {
-            interpret_expression(inner_expr).and_then(|res| Ok(Expression::Invert(Box::new(res))))
+            interpret_expression(inner_expr).map(|res| Expression::Invert(Box::new(res)))
         }
     }
 }
@@ -149,7 +149,7 @@ pub fn interpret_expression_string(expression_str: &str) -> Result<Expression, E
     let expression_str2 = OPERATOR_REGEX.replace_all(expression_str, " $1 ");
 
     let words: Vec<&str> = expression_str2.split_whitespace().collect();
-    if words.len() == 0 {
+    if words.is_empty() {
         return Ok(Expression::Null);
     }
 
@@ -200,7 +200,7 @@ fn interpret_phrase(
     phrase: &[WrappedWords],
     prev_op: Option<ExpressionOperator>,
 ) -> Result<Expression, ExpressionError> {
-    if phrase.len() == 0 {
+    if phrase.is_empty() {
         Ok(Expression::Null)
     } else if phrase.len() == 1 {
         match phrase.last().unwrap() {
@@ -364,7 +364,7 @@ fn wrap_expression(words: Vec<&str>) -> Result<Vec<WrappedWords>, ExpressionErro
         current.push(WrappedWords::Single(t));
     }
 
-    if stack.len() > 0 {
+    if !stack.is_empty() {
         Err(ExpressionError::MismatchedParenthesis)
     } else {
         Ok(current)
