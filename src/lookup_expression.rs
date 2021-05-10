@@ -1,12 +1,12 @@
-use crate::resolver::ResolveError;
-use crate::api::ResolverContext;
+use crate::resolver::ResolverContext;
 use crate::caps::{Cap, CapsBuilder};
 use crate::events::{IsEvent, VecIsEventExt};
 use crate::expression::{Expression, ExpressionObj, ExpressionOperator};
 use crate::instance::{TimelineObjectInstance, TimelineObjectResolveStatus};
 use crate::references::ReferencesBuilder;
+use crate::resolver::ResolveError;
 use crate::resolver::{ObjectRefType, TimeWithReference};
-use crate::state::ResolvedTimelineObject;
+use crate::state::ResolvingTimelineObject;
 use crate::util::{clean_instances, invert_instances, operate_on_arrays, Time};
 use regex::Regex;
 use std::collections::HashSet;
@@ -38,8 +38,8 @@ impl LookupExpressionResult {
 }
 
 pub fn lookup_expression(
-    ctx: &dyn ResolverContext,
-    obj: &ResolvedTimelineObject,
+    ctx: &ResolverContext,
+    obj: &ResolvingTimelineObject,
     expr: &Expression,
     default_ref_type: &ObjectRefType,
 ) -> Result<LookupExpressionResult, ResolveError> {
@@ -83,7 +83,7 @@ struct MatchExpressionReferences {
     pub all_references: HashSet<String>,
 }
 fn match_expression_references(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     expr_str: &str,
 ) -> Option<MatchExpressionReferences> {
     if let Some(id_match) = MATCH_ID_REGEX.captures(expr_str) {
@@ -122,8 +122,8 @@ fn match_expression_references(
 }
 
 fn lookup_expression_str(
-    ctx: &dyn ResolverContext,
-    obj: &ResolvedTimelineObject,
+    ctx: &ResolverContext,
+    obj: &ResolvingTimelineObject,
     expr_str: &str,
     default_ref_type: &ObjectRefType,
 ) -> Result<LookupExpressionResult, ResolveError> {
@@ -146,7 +146,7 @@ fn lookup_expression_str(
     // }
 
     if let Some(expression_references) = match_expression_references(ctx, expr_str) {
-        let mut referenced_objs: Vec<&ResolvedTimelineObject> = Vec::new();
+        let mut referenced_objs: Vec<&ResolvingTimelineObject> = Vec::new();
         for ref_obj_id in &expression_references.object_ids_to_reference {
             if ref_obj_id.eq(&obj.info.id) {
                 let mut locked = obj.resolved.write().unwrap(); // TODO - handle error
@@ -194,7 +194,7 @@ fn lookup_expression_str(
                 let mut instance_durations = Vec::new();
                 for ref_obj in referenced_objs {
                     ctx.resolve_object(ref_obj)?;
-                    
+
                     let obj_is_self_referencing = obj.is_self_referencing();
                     let locked_ref = ref_obj.resolved.read().unwrap(); // TODO - handle error
                     match &*locked_ref {
@@ -307,8 +307,8 @@ fn lookup_expression_str(
 }
 
 fn lookup_expression_obj(
-    ctx: &dyn ResolverContext,
-    obj: &ResolvedTimelineObject,
+    ctx: &ResolverContext,
+    obj: &ResolvingTimelineObject,
     expr: &ExpressionObj,
     default_ref_type: &ObjectRefType,
 ) -> Result<LookupExpressionResult, ResolveError> {

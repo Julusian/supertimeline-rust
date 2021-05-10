@@ -1,8 +1,9 @@
 use crate::api::ResolvedTimeline;
 use crate::instance::ResolvedTimelineObjectInstances;
+use crate::instance::TimelineObjectInfo;
 use crate::instance::TimelineObjectInstance;
-use crate::instance::TimelineObjectResolveInfo;
 use crate::instance::TimelineObjectResolveStatus;
+use crate::instance::TimelineObjectResolved;
 use crate::instance::{
     ResolvedTimelineObjectEntry, ResolvedTimelineObjectInstance,
     ResolvedTimelineObjectInstanceKeyframe,
@@ -44,23 +45,21 @@ pub struct ResolveOptions {
     //                                        // cache?: ResolverCache
 }
 
-pub struct ResolvedTimelineObject {
+pub struct ResolvingTimelineObject {
     // pub object: Box<dyn IsTimelineObject>,
     pub resolved: RwLock<TimelineObjectResolveStatus>,
-    pub info: TimelineObjectResolveInfo,
+    pub info: TimelineObjectInfo,
 }
-impl ResolvedTimelineObject {
+pub struct ResolvedTimelineObject {
+    // pub object: Box<dyn IsTimelineObject>,
+    pub resolved: TimelineObjectResolved,
+    pub info: TimelineObjectInfo,
+}
+
+impl ResolvingTimelineObject {
     pub fn is_self_referencing(&self) -> bool {
         let locked = self.resolved.read().unwrap(); // TODO - handle error
         locked.is_self_referencing()
-    }
-    pub fn is_resolved(&self) -> bool {
-        let locked = self.resolved.read().unwrap(); // TODO - handle error
-        match &*locked {
-            TimelineObjectResolveStatus::Complete(_) => true,
-            TimelineObjectResolveStatus::InProgress(_) => false,
-            TimelineObjectResolveStatus::Pending => false,
-        }
     }
 }
 
@@ -240,55 +239,48 @@ pub fn resolve_all_states(
 
     for obj in &resolved_objects {
         if !obj.info.disabled && obj.info.layer.len() > 0 && !obj.info.is_keyframe {
-            let locked = obj.resolved.read().unwrap(); // TODO - handle error
-            match &*locked {
-                TimelineObjectResolveStatus::Pending => {} // do nothing
-                TimelineObjectResolveStatus::InProgress(_) => {} // do nothing
-                TimelineObjectResolveStatus::Complete(res) => {
-                    for instance in &res.instances {
-                        let use_instance = {
-                            if let Some(only_for_time) = only_for_time {
-                                instance.start <= only_for_time
-                                    && instance.end.unwrap_or(Time::MAX) > only_for_time
-                            } else {
-                                true
-                            }
-                        };
+            for instance in &obj.resolved.instances {
+                let use_instance = {
+                    if let Some(only_for_time) = only_for_time {
+                        instance.start <= only_for_time
+                            && instance.end.unwrap_or(Time::MAX) > only_for_time
+                    } else {
+                        true
+                    }
+                };
 
-                        if use_instance {
-                            let mut time_events = Vec::new();
+                if use_instance {
+                    let mut time_events = Vec::new();
 
-                            time_events.push(TimeEvent {
-                                time: instance.start,
-                                enable: true,
-                            });
-                            if let Some(end) = instance.end {
-                                time_events.push(TimeEvent {
-                                    time: end,
-                                    enable: false,
-                                });
-                            }
+                    time_events.push(TimeEvent {
+                        time: instance.start,
+                        enable: true,
+                    });
+                    if let Some(end) = instance.end {
+                        time_events.push(TimeEvent {
+                            time: end,
+                            enable: false,
+                        });
+                    }
 
-                            // Also include times from parents, as they could affect the state of this instance:
-                            let parent_times = get_times_from_parent(resolved, obj);
-                            for parent_time in parent_times {
-                                if parent_time.time > instance.start
-                                    && parent_time.time < instance.end.unwrap_or(Time::MAX)
-                                {
-                                    time_events.push(parent_time)
-                                }
-                            }
-
-                            let inner_obj = make_resolved_obj(obj, instance);
-
-                            // Save a reference to this instance on all points in time that could affect it:
-                            for time_event in time_events {
-                                add_point_in_time(time_event.time, time_event.enable, &inner_obj);
-                            }
+                    // Also include times from parents, as they could affect the state of this instance:
+                    let parent_times = get_times_from_parent(resolved, obj);
+                    for parent_time in parent_times {
+                        if parent_time.time > instance.start
+                            && parent_time.time < instance.end.unwrap_or(Time::MAX)
+                        {
+                            time_events.push(parent_time)
                         }
                     }
+
+                    let inner_obj = make_resolved_obj(obj, instance);
+
+                    // Save a reference to this instance on all points in time that could affect it:
+                    for time_event in time_events {
+                        add_point_in_time(time_event.time, time_event.enable, &inner_obj);
+                    }
                 }
-            };
+            }
         }
     }
 
@@ -300,22 +292,15 @@ pub fn resolve_all_states(
             && obj.info.parent_id.is_some()
         {
             // TODO - should this check the layer for being empty?
-            let locked = obj.resolved.read().unwrap(); // TODO - handle error
-            match &*locked {
-                TimelineObjectResolveStatus::Pending => {} // do nothing
-                TimelineObjectResolveStatus::InProgress(_) => {} // do nothing
-                TimelineObjectResolveStatus::Complete(res) => {
-                    for instance in &res.instances {
-                        let inner_obj = make_resolved_obj(obj, instance);
+            for instance in &obj.resolved.instances {
+                let inner_obj = make_resolved_obj(obj, instance);
 
-                        // Keyframe start time
-                        add_point_in_time(instance.start, true, &inner_obj);
+                // Keyframe start time
+                add_point_in_time(instance.start, true, &inner_obj);
 
-                        // Keyframe end time
-                        if let Some(end) = instance.end {
-                            add_point_in_time(end, false, &inner_obj);
-                        }
-                    }
+                // Keyframe end time
+                if let Some(end) = instance.end {
+                    add_point_in_time(end, false, &inner_obj);
                 }
             }
         }
@@ -765,27 +750,20 @@ fn get_times_from_parent(
 
     if let Some(parent_id) = &obj.info.parent_id {
         if let Some(parent_obj) = resolved.objects.get(parent_id) {
-            let locked = parent_obj.resolved.read().unwrap(); // TODO - handle error
-            match &*locked {
-                TimelineObjectResolveStatus::Complete(res) => {
-                    for instance in &res.instances {
-                        times.push(TimeEvent {
-                            time: instance.start,
-                            enable: true,
-                        });
-                        if let Some(end) = instance.end {
-                            times.push(TimeEvent {
-                                time: end,
-                                enable: false,
-                            });
-                        }
-                    }
-
-                    times.extend(get_times_from_parent(resolved, parent_obj));
+            for instance in &parent_obj.resolved.instances {
+                times.push(TimeEvent {
+                    time: instance.start,
+                    enable: true,
+                });
+                if let Some(end) = instance.end {
+                    times.push(TimeEvent {
+                        time: end,
+                        enable: false,
+                    });
                 }
-                TimelineObjectResolveStatus::InProgress(_) => {}
-                TimelineObjectResolveStatus::Pending => {}
-            };
+            }
+
+            times.extend(get_times_from_parent(resolved, parent_obj));
         }
     }
 

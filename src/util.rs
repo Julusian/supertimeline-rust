@@ -1,4 +1,5 @@
-use crate::api::{ResolverContext, DEFAULT_LIMIT_COUNT};
+use crate::resolver::ResolverContext;
+use crate::api::DEFAULT_LIMIT_COUNT;
 use crate::caps::{Cap, CapsBuilder};
 use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::instance::TimelineObjectInstance;
@@ -12,7 +13,7 @@ use std::collections::HashSet;
 pub type Time = u64;
 
 pub fn invert_instances(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     instances: &Vec<TimelineObjectInstance>,
 ) -> Vec<TimelineObjectInstance> {
     if instances.len() == 0 {
@@ -88,7 +89,7 @@ pub fn invert_instances(
 
 // Cleanup instances. Join overlaps or touching etc
 pub fn clean_instances(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     instances: &Vec<TimelineObjectInstance>,
     allow_merge: bool,
     allow_zero_gaps: bool,
@@ -184,7 +185,7 @@ fn get_existing_array_to_operate(
 }
 
 pub fn operate_on_arrays<T>(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     lookup0: &LookupExpressionResultType,
     lookup1: &LookupExpressionResultType,
     operate: &T,
@@ -308,7 +309,7 @@ where
 }
 
 pub fn apply_repeating_instances(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     instances: Vec<TimelineObjectInstance>,
     repeat_time: Option<TimeWithReference>,
     options: &ResolveOptions,
@@ -395,7 +396,7 @@ pub fn apply_repeating_instances(
 }
 
 pub fn apply_parent_instances(
-    ctx: &dyn ResolverContext,
+    ctx: &ResolverContext,
     parent_instances: &Option<Vec<TimelineObjectInstance>>,
     value: &LookupExpressionResultType,
 ) -> LookupExpressionResultType {

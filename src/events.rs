@@ -1,7 +1,7 @@
-use crate::api::ResolverContext;
 use crate::caps::Cap;
 use crate::instance::TimelineObjectInstance;
 use crate::references::ReferencesBuilder;
+use crate::resolver::ResolverContext;
 use crate::util::{add_caps_to_resuming, Time};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
@@ -78,7 +78,7 @@ impl IsEvent for EventForInstance {
 pub trait EventForInstanceExt {
     fn to_instances(
         self,
-        ctx: &dyn ResolverContext,
+        ctx: &ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance>;
@@ -86,7 +86,7 @@ pub trait EventForInstanceExt {
 impl EventForInstanceExt for Vec<EventForInstance> {
     fn to_instances(
         mut self,
-        ctx: &dyn ResolverContext,
+        ctx: &ResolverContext,
         allow_merge: bool,
         allow_zero_gaps: bool,
     ) -> Vec<TimelineObjectInstance> {

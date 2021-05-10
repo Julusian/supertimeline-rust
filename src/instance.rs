@@ -19,13 +19,13 @@ pub struct ResolvedTimelineObjectInstanceKeyframe {
 
 #[derive(Debug, Clone)]
 pub struct ResolvedTimelineObjectInstance {
-    pub info: TimelineObjectResolveInfo,
+    pub info: TimelineObjectInfo,
     pub instance: Rc<TimelineObjectInstance>,
 }
 
 #[derive(Clone)]
 pub struct ResolvedTimelineObjectInstances {
-    pub info: TimelineObjectResolveInfo,
+    pub info: TimelineObjectInfo,
     pub instances: Vec<Rc<TimelineObjectInstance>>,
 }
 
@@ -49,7 +49,7 @@ impl TimelineObjectResolveStatus {
 }
 
 #[derive(Debug, Clone)]
-pub struct TimelineObjectResolveInfo {
+pub struct TimelineObjectInfo {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
     pub priority: u64,
