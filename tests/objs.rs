@@ -61,27 +61,19 @@ impl IsTimelineKeyframe for SimpleKeyframe {
     }
 }
 
+/**
+ * This is a copy of TimelineObjectInstance, with many properties removed, to simplify comparison
+ */
 #[derive(Debug, Clone, PartialEq)]
 pub struct TimelineObjectInstanceLight {
-    // /** id of the instance (unique)  */
     // pub id: String,
-    /** if true, the instance starts from the beginning of time */
     pub is_first: bool,
-    /** The start time of the instance */
     pub start: Time,
-    /** The end time of the instance (null = infinite) */
     pub end: Option<Time>,
 
-    /** The original start time of the instance (if an instance is split or capped, the original start time is retained in here).
-     * If undefined, fallback to .start
-     */
     pub original_start: Option<Time>,
-    /** The original end time of the instance (if an instance is split or capped, the original end time is retained in here)
-     * If undefined, fallback to .end
-     */
     pub original_end: Option<Time>,
 
-    /** If the instance was generated from another instance, reference to the original */
     pub from_instance_id: Option<String>,
 }
 impl TimelineObjectInstanceLight {
