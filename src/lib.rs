@@ -20,6 +20,7 @@ pub use state::{
     get_state, resolve_all_states, EventType, NextEvent, ResolvedStates, ResolvedStatesError,
     ResolvedTimelineObject, ResolvedTimelineObjectInstance, TimelineState,
 };
+pub use util::Time;
 
 #[cfg(test)]
 mod tests {

@@ -444,10 +444,7 @@ impl<'a> ResolverContext<'a> {
         }
 
         // filter out zero-length instances:
-        let filtered_instances: Vec<TimelineObjectInstance> = instances
-            .into_iter()
-            .filter(|instance| instance.end.unwrap_or(Time::MAX) > instance.start)
-            .collect();
+        instances.retain(|instance| instance.end.unwrap_or(Time::MAX) > instance.start);
 
         let mut locked_result = obj.resolved.write().unwrap(); // TODO - handle error
         match &*locked_result {
@@ -463,7 +460,7 @@ impl<'a> ResolverContext<'a> {
                 *locked_result = TimelineObjectResolvingStatus::Complete(TimelineObjectResolved {
                     is_self_referencing: progress.is_self_referencing,
 
-                    instances: filtered_instances,
+                    instances,
                     direct_references,
                 });
 

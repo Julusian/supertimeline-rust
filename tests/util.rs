@@ -22,7 +22,7 @@ pub fn assert_instances(
         } else if a.start > b.start {
             Ordering::Greater
         } else {
-            b.id.cmp(&a.id)
+            a.id.cmp(&b.id)
         }
     });
 

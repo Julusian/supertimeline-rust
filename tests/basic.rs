@@ -564,7 +564,6 @@ fn classes() {
 }
 
 #[test]
-#[ignore] // TODO - broken
 fn unique_instance_ids() {
     let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
         Box::new(SimpleTimelineObj {
