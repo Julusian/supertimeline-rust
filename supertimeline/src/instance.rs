@@ -2,6 +2,7 @@ use crate::caps::Cap;
 use crate::expression::Expression;
 use crate::util::Time;
 use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectInfo {
@@ -66,6 +67,7 @@ pub struct TimelineObjectInstance {
     pub from_instance_id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, Default)]
 pub struct TimelineEnable {
     /** (Optional) The start time of the object. (Cannot be combined with .while) */

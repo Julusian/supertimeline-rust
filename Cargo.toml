@@ -1,14 +1,6 @@
-[package]
-name = "supertimeline"
-version = "0.1.0"
-authors = ["Julian Waller <git@julusian.co.uk>"]
-edition = "2018"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-regex = "1"
-lazy_static = "1.4.0"
-velcro = "0.5.3"
-
-[dev-dependencies]
+members = [
+    "supertimeline",
+    "supertimeline-json",
+]

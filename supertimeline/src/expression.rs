@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
+use serde::{Deserialize, Serialize};
 
 const OPERATORS: &[&str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
 
@@ -11,6 +12,7 @@ lazy_static::lazy_static! {
     };
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ExpressionOperator {
     And,
@@ -35,6 +37,7 @@ impl Display for ExpressionOperator {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     Null,
@@ -55,6 +58,7 @@ impl Display for Expression {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionObj {
     pub l: Expression,
