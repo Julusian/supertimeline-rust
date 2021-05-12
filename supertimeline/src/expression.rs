@@ -1,3 +1,4 @@
+use serde::de::MapAccess;
 use serde::Deserializer;
 use serde::Serializer;
 use regex::Regex;
@@ -17,12 +18,19 @@ lazy_static::lazy_static! {
 #[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ExpressionOperator {
+    #[serde(rename = "+")]
     And,
+    #[serde(rename = "|")]
     Or,
+    #[serde(rename = "&")]
     Add,
+    #[serde(rename = "-")]
     Subtract,
+    #[serde(rename = "*")]
     Multiply,
+    #[serde(rename = "/")]
     Divide,
+    #[serde(rename = "%")]
     Remainder,
 }
 impl Display for ExpressionOperator {
@@ -40,6 +48,8 @@ impl Display for ExpressionOperator {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Expression {
     Null,
     Number(i64),
@@ -58,27 +68,117 @@ impl Display for Expression {
         }
     }
 }
-impl Serialize for Expression {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Expression::Null => serializer.serialize_none(),
-            Expression::Number(v) => serializer.serialize_i64(*v),
-            Expression::String(v) => serializer.serialize_str(v),
-            Expression::Expression(v) => v.serialize(serializer),
-            Expression::Invert(_) => unimplemented!(),
-        }
-    }
-}
-impl<'de> Deserialize<'de> for Expression {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de> {
-            panic!();
-        }
-}
+// impl Serialize for Expression {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         match self {
+//             Expression::Null => serializer.serialize_none(),
+//             Expression::Number(v) => serializer.serialize_i64(*v),
+//             Expression::String(v) => serializer.serialize_str(v),
+//             Expression::Expression(v) => v.serialize(serializer),
+//             Expression::Invert(_) => unimplemented!(),
+//         }
+//     }
+// }
+// impl<'de> Deserialize<'de> for Expression {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de> {
+//             deserializer.deserialize_any(ExpressionVisitor)
+//         }
+// }
+
+
+// struct ExpressionVisitor;
+
+// impl<'de> Visitor<'de> for ExpressionVisitor {
+//     type Value = Expression;
+
+//     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         formatter.write_str("an integer between -2^31 and 2^31")
+//     }
+
+
+//     fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+//     where
+//         E: de::Error,
+//     {
+//         Ok(Expression::Number(value))
+//     }
+
+//     fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+//     where
+//         E: de::Error,
+//     {
+//         match i64::try_from(value) {
+//             Ok(v) => Ok(Expression::Number(v)),
+//             Err(_err) => Err(E::custom(format!("i64 out of range: {}", value)))
+//         }
+//     }
+
+//     fn visit_none<E>(self) -> Result<Self::Value, E>
+//     where
+//         E: de::Error,
+//     {
+//         Ok(Expression::Null)
+//     }
+
+
+//     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+//     where
+//         E: de::Error,
+//     {
+//         self.visit_string(value.to_string())
+//     }
+    
+//     fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+//     where
+//         E: de::Error,
+//     {
+//         Ok(Expression::String(value))
+//     }
+    
+//     fn visit_map<E>(self, mut map: E) -> Result<Self::Value, E::Error>
+//     where
+//         E: MapAccess<'de>,
+//     {
+//         let mut l = None;
+//         let mut o = None;
+//         let mut r = None;
+//         while let Some(key) = map.next_key()? {
+//             match key {
+//                 "l" => {
+//                     if l.is_some() {
+//                         return Err(de::Error::duplicate_field("l"));
+//                     }
+//                     l = Some(map.next_value()?);
+//                 },
+//                 "r" => {
+//                     if r.is_some() {
+//                         return Err(de::Error::duplicate_field("r"));
+//                     }
+//                     r = Some(map.next_value()?);
+//                 },
+//                 "o" => {
+//                     if o.is_some() {
+//                         return Err(de::Error::duplicate_field("o"));
+//                     }
+//                     o = Some(map.next_value()?);
+//                 }
+//                 _ => {
+//                     return Err(de::Error::unknown_field(key, &["l", "o", "r"]));
+//                 },
+//             }
+//         }
+
+//         let l = l.ok_or_else(|| de::Error::missing_field("l"))?;
+//         let r = r.ok_or_else(|| de::Error::missing_field("r"))?;
+//         let o = o.ok_or_else(|| de::Error::missing_field("o"))?;
+//         Ok(ExpressionObj::create(l, o, r))
+//     }
+// }
 
 #[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone)]
@@ -90,6 +190,11 @@ pub struct ExpressionObj {
 impl ExpressionObj {
     pub fn wrap(self) -> Expression {
         Expression::Expression(Box::new(self))
+    }
+    pub fn create(l: Expression, o: ExpressionOperator, r: Expression) -> Expression {
+        Expression::Expression(Box::new(ExpressionObj{
+            l,o,r
+        }))
     }
 }
 impl Display for ExpressionObj {

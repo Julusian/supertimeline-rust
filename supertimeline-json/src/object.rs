@@ -5,7 +5,7 @@ use supertimeline::IsTimelineKeyframe;
 use supertimeline::IsTimelineObject;
 use supertimeline::TimelineEnable;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct JsonTimelineObjectKeyframe {
     pub id: String,
     // #[serde(default, with = "vec_timeline_enable")]
@@ -31,7 +31,7 @@ impl IsTimelineKeyframe for JsonTimelineObjectKeyframe {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct JsonTimelineObject {
     pub id: String,
     // #[serde(default, with = "vec_timeline_enable")]
@@ -73,7 +73,6 @@ impl IsTimelineObject<JsonTimelineObject, JsonTimelineObjectKeyframe> for JsonTi
         self.priority
     }
 }
-
 
 // mod vec_timeline_enable {
 //     use serde::ser::{SerializeSeq, SerializeStruct};
@@ -120,6 +119,8 @@ impl IsTimelineObject<JsonTimelineObject, JsonTimelineObjectKeyframe> for JsonTi
 mod tests {
     use super::*;
     use supertimeline::Expression;
+    use supertimeline::ExpressionObj;
+    use supertimeline::ExpressionOperator;
 
     #[test]
     // #[ignore]
@@ -133,7 +134,12 @@ mod tests {
             content: serde_json::from_str("{}").unwrap(),
             enable: vec![TimelineEnable {
                 enable_start: Some(Expression::Number(4)),
-                enable_end: Some(Expression::Null),
+                enable_end: Some(ExpressionObj::create(
+                    Expression::Number(10),
+                    ExpressionOperator::Add,
+                    Expression::String("abc".to_string()),
+                )),
+                // duration: Some(Expression::Null),
                 ..Default::default()
             }],
             children: None,
@@ -144,6 +150,13 @@ mod tests {
 
         // Print, write to a file, or send to an HTTP server.
         println!("output {}", j);
+
+        let parsed = serde_json::from_str::<JsonTimelineObject>(&j).unwrap();
+
+        println!("got back {:#?}", parsed);
+
+        assert_eq!(src, parsed);
+
         panic!();
     }
 }
