@@ -71,17 +71,22 @@ pub struct TimelineObjectInstance {
 #[derive(Debug, Clone, Default)]
 pub struct TimelineEnable {
     /** (Optional) The start time of the object. (Cannot be combined with .while) */
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_start: Option<Expression>,
 
     /** (Optional) The end time of the object (Cannot be combined with .while or .duration) */
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_end: Option<Expression>,
 
     /** (Optional) Enables the object WHILE expression is true (ie sets both the start and end). (Cannot be combined with .start, .end or .duration ) */
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_while: Option<Expression>,
 
     /** (Optional) The duration of an object */
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<Expression>,
 
     /** (Optional) Makes the object repeat with given interval */
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub repeating: Option<Expression>,
 }

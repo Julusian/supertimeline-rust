@@ -1,3 +1,5 @@
+use serde::Deserializer;
+use serde::Serializer;
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
 use serde::{Deserialize, Serialize};
@@ -37,7 +39,6 @@ impl Display for ExpressionOperator {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     Null,
@@ -56,6 +57,27 @@ impl Display for Expression {
             Expression::Invert(val) => write!(f, "!{}", val),
         }
     }
+}
+impl Serialize for Expression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Expression::Null => serializer.serialize_none(),
+            Expression::Number(v) => serializer.serialize_i64(*v),
+            Expression::String(v) => serializer.serialize_str(v),
+            Expression::Expression(v) => v.serialize(serializer),
+            Expression::Invert(_) => unimplemented!(),
+        }
+    }
+}
+impl<'de> Deserialize<'de> for Expression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de> {
+            panic!();
+        }
 }
 
 #[derive(Serialize, Deserialize)]
