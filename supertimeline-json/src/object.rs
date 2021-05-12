@@ -76,9 +76,14 @@ impl IsTimelineObject<JsonTimelineObject, JsonTimelineObjectKeyframe> for JsonTi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
+    use supertimeline::get_state;
+    use supertimeline::resolve_all_states;
+    use supertimeline::resolve_timeline;
     use supertimeline::Expression;
     use supertimeline::ExpressionObj;
     use supertimeline::ExpressionOperator;
+    use supertimeline::ResolveOptions;
 
     #[test]
     // #[ignore]
@@ -135,9 +140,23 @@ mod tests {
     fn mangle_json_obj(obj: &mut serde_json::Value) -> serde_json::Result<()> {
         match obj {
             serde_json::Value::Object(map) => {
-                if let Some(enable) = map.get("enable") {
+                if let Some(enable) = map.get_mut("enable") {
                     if !enable.is_array() {
+                        match enable {
+                            serde_json::Value::Object(en) => {
+                                let v = en.get("start");
+                                if let Some(v) = v {
+                                    if let Some(v) = v.as_f64() {
+                                        let v2 = serde_json::to_value(v.round() as i64)?;
+                                        en.insert("start".to_string(), v2);
+                                    }
+                                }
+                            },
+                            _ => {}
+                        }
+
                         let val = serde_json::to_value(vec![enable])?;
+                        // let val = serde_json::to_value(Vec::<u64>::new())?;
                         map.insert("enable".to_string(), val);
                     }
                 }
@@ -160,7 +179,7 @@ mod tests {
                         for obj in arr {
                             mangle_json_obj(obj)?;
                         }
-                    } 
+                    }
                 }
 
                 if let Some(keyframes) = map.get_mut("keyframes") {
@@ -168,7 +187,7 @@ mod tests {
                         for obj in arr {
                             mangle_json_obj(obj)?;
                         }
-                    } 
+                    }
                 }
             }
             _ => {}
@@ -181,9 +200,31 @@ mod tests {
     fn parse() {
         let j = mangle_json_enable(include_str!("dump.json")).unwrap();
 
-        let parsed = serde_json::from_str::<Vec<JsonTimelineObject>>(&j).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_str(&j);
+        let parsed:Vec<JsonTimelineObject >= serde_path_to_error::deserialize(&mut deserializer).unwrap();
+
 
         println!("got back {:#?}", parsed);
         // panic!();
+
+        let options = ResolveOptions {
+            time: 1597158621470,
+            limit_count: None,
+            limit_time: None,
+        };
+
+        let start = Instant::now();
+
+        let resolved = resolve_timeline(&parsed, options).unwrap();
+        // let states = resolve_all_states(&resolved, None).unwrap();
+
+        // let state = get_state(&states, 1597158621470 + 5000, None);
+
+        let duration = start.elapsed();
+
+        // println!("got back {:#?}", state);
+
+        println!("it took {}", duration.as_millis());
+        panic!();
     }
 }

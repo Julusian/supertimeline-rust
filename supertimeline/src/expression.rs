@@ -53,6 +53,7 @@ pub enum Expression {
     Number(i64),
     String(String),
     Expression(Box<ExpressionObj>),
+    #[serde(skip)]
     Invert(Box<Expression>),
 }
 impl Display for Expression {

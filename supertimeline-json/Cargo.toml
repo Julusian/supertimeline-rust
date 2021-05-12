@@ -13,3 +13,4 @@ supertimeline = { path = "../supertimeline", features = ["serde_support"] }
 
 
 [dev-dependencies]
+serde_path_to_error = "0.1"

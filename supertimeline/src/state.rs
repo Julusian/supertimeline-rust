@@ -82,6 +82,7 @@ pub struct TimelineLayerState {
     pub keyframes: Vec<Rc<ResolvedTimelineObjectInstanceKeyframe>>,
 }
 
+#[derive(Debug)]
 pub struct TimelineState {
     pub time: Time,
     pub layers: HashMap<String, TimelineLayerState2>,
