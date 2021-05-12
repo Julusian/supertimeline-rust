@@ -11,8 +11,7 @@ use supertimeline::get_state;
 use supertimeline::NextEvent;
 use supertimeline::TimelineObjectInstance;
 use supertimeline::{
-    resolve_all_states, resolve_timeline, EventType, Expression, ResolveOptions,
-    TimelineEnable,
+    resolve_all_states, resolve_timeline, EventType, Expression, ResolveOptions, TimelineEnable,
 };
 
 #[test]

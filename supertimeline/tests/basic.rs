@@ -11,8 +11,8 @@ use std::rc::Rc;
 use supertimeline::get_state;
 use supertimeline::TimelineObjectInstance;
 use supertimeline::{
-    resolve_all_states, resolve_timeline, EventType, Expression, NextEvent,
-    ResolveOptions, TimelineEnable,
+    resolve_all_states, resolve_timeline, EventType, Expression, NextEvent, ResolveOptions,
+    TimelineEnable,
 };
 
 #[test]

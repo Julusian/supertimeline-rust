@@ -9,7 +9,7 @@ use std::collections::HashSet;
 pub struct TimelineObjectInfo {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
-    pub priority: u64,
+    pub priority: i64,
     pub disabled: bool,
     pub layer: String,
 

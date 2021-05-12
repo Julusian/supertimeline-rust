@@ -30,7 +30,7 @@ pub trait IsTimelineObject<
     fn disabled(&self) -> bool;
     //fn is_group (&self) -> bool;
     fn children(&self) -> Option<&Vec<TChild>>;
-    fn priority(&self) -> u64;
+    fn priority(&self) -> i64;
 }
 
 pub trait IsTimelineKeyframe {
