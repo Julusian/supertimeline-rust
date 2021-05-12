@@ -5,11 +5,11 @@ use crate::resolver::ResolverContext;
 use crate::resolver::{ResolvingTimelineObject, TimelineObjectResolvingStatus};
 use crate::state::ResolvedTimelineObject;
 use crate::util::Time;
+#[cfg(feature = "serde_support")]
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::RwLock;
-#[cfg(feature = "serde_support")]
-use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LIMIT_COUNT: usize = 2;
 
@@ -42,7 +42,6 @@ pub trait IsTimelineKeyframe {
     fn classes(&self) -> Option<&Vec<String>>;
     fn disabled(&self) -> bool;
 }
-
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]

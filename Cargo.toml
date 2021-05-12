@@ -3,4 +3,5 @@
 members = [
     "supertimeline",
     "supertimeline-json",
+    "resolve-it"
 ]

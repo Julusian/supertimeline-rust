@@ -333,88 +333,88 @@ pub fn apply_repeating_instances(
 ) -> Vec<TimelineObjectInstance> {
     if let Some(repeat_time) = &repeat_time {
         if repeat_time.value != 0 {
-        let mut repeated_instances = Vec::new();
+            let mut repeated_instances = Vec::new();
 
-        // TODO - why was this necessary?
-        // if (isReference(instances)) {
-        //     instances = [{
-        //         id: '',
-        //         start: instances.value,
-        //         end: null,
-        //         references: instances.references
-        //     }]
-        // }
+            // TODO - why was this necessary?
+            // if (isReference(instances)) {
+            //     instances = [{
+            //         id: '',
+            //         start: instances.value,
+            //         end: null,
+            //         references: instances.references
+            //     }]
+            // }
 
-        for instance in &instances {
-            // TODO - fix this maths hack
-            let mut start_time = max(
-                (options.time as i128
-                    - (((options.time as i128) - instance.start as i128)
-                        % repeat_time.value as i128)) as u64,
-                instance.start,
-            );
-            let mut end_time = instance.end.map(|end| end + (start_time - instance.start));
+            for instance in &instances {
+                // TODO - fix this maths hack
+                let mut start_time = max(
+                    (options.time as i128
+                        - (((options.time as i128) - instance.start as i128)
+                            % repeat_time.value as i128)) as u64,
+                    instance.start,
+                );
+                let mut end_time = instance.end.map(|end| end + (start_time - instance.start));
 
-            let cap = instance
-                .caps
-                .iter()
-                .find(|cap| instance.references.contains(&cap.id));
+                let cap = instance
+                    .caps
+                    .iter()
+                    .find(|cap| instance.references.contains(&cap.id));
 
-            let limit = options.limit_count.unwrap_or(DEFAULT_LIMIT_COUNT);
-            for _i in 0..limit {
-                if let Some(limit_time) = options.limit_time {
-                    if start_time >= limit_time {
-                        break;
+                let limit = options.limit_count.unwrap_or(DEFAULT_LIMIT_COUNT);
+                for _i in 0..limit {
+                    if let Some(limit_time) = options.limit_time {
+                        if start_time >= limit_time {
+                            break;
+                        }
+                    }
+
+                    let capped_start_time = cap
+                        .map(|cap| max(cap.start, start_time))
+                        .unwrap_or(start_time);
+                    let capped_end_time = if let Some(end_time) = end_time {
+                        Some(
+                            cap.and_then(|cap| cap.end)
+                                .map(|cap_end| min(cap_end, end_time))
+                                .unwrap_or(end_time),
+                        )
+                    } else {
+                        None
+                    };
+
+                    if capped_end_time.unwrap_or(Time::MAX) > capped_start_time {
+                        let references = ReferencesBuilder::new()
+                            .add_id(&instance.id)
+                            .add(&instance.references)
+                            .add(&repeat_time.references)
+                            .done();
+                        repeated_instances.push(TimelineObjectInstance {
+                            id: ctx.generate_id(),
+                            start: capped_start_time,
+                            end: capped_end_time,
+                            references,
+
+                            is_first: false,
+                            original_start: None,
+                            original_end: None,
+                            caps: Vec::new(),
+                            from_instance_id: None,
+                        })
+                    }
+
+                    start_time += repeat_time.value;
+                    if let Some(end_time0) = &end_time {
+                        end_time = Some(end_time0 + repeat_time.value);
                     }
                 }
-
-                let capped_start_time = cap
-                    .map(|cap| max(cap.start, start_time))
-                    .unwrap_or(start_time);
-                let capped_end_time = if let Some(end_time) = end_time {
-                    Some(
-                        cap.and_then(|cap| cap.end)
-                            .map(|cap_end| min(cap_end, end_time))
-                            .unwrap_or(end_time),
-                    )
-                } else {
-                    None
-                };
-
-                if capped_end_time.unwrap_or(Time::MAX) > capped_start_time {
-                    let references = ReferencesBuilder::new()
-                        .add_id(&instance.id)
-                        .add(&instance.references)
-                        .add(&repeat_time.references)
-                        .done();
-                    repeated_instances.push(TimelineObjectInstance {
-                        id: ctx.generate_id(),
-                        start: capped_start_time,
-                        end: capped_end_time,
-                        references,
-
-                        is_first: false,
-                        original_start: None,
-                        original_end: None,
-                        caps: Vec::new(),
-                        from_instance_id: None,
-                    })
-                }
-
-                start_time += repeat_time.value;
-                if let Some(end_time0) = &end_time {
-                    end_time = Some(end_time0 + repeat_time.value);
-                }
             }
-        }
 
-        clean_instances(ctx, &repeated_instances, false, false)
+            clean_instances(ctx, &repeated_instances, false, false)
+        } else {
+            instances
+        }
     } else {
         instances
     }
-} else {
-    instances
-}
 }
 
 pub fn apply_parent_instances(
