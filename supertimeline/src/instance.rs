@@ -1,9 +1,9 @@
 use crate::caps::Cap;
 use crate::expression::Expression;
 use crate::util::Time;
-use std::collections::HashSet;
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct TimelineObjectInfo {
@@ -72,22 +72,37 @@ pub struct TimelineObjectInstance {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TimelineEnable {
     /** (Optional) The start time of the object. (Cannot be combined with .while) */
-    #[cfg_attr(feature = "serde_support", serde(rename="start", skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde_support",
+        serde(rename = "start", skip_serializing_if = "Option::is_none")
+    )]
     pub enable_start: Option<Expression>,
 
     /** (Optional) The end time of the object (Cannot be combined with .while or .duration) */
-    #[cfg_attr(feature = "serde_support", serde(rename="end", skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde_support",
+        serde(rename = "end", skip_serializing_if = "Option::is_none")
+    )]
     pub enable_end: Option<Expression>,
 
     /** (Optional) Enables the object WHILE expression is true (ie sets both the start and end). (Cannot be combined with .start, .end or .duration ) */
-    #[cfg_attr(feature = "serde_support", serde(rename="while", skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde_support",
+        serde(rename = "while", skip_serializing_if = "Option::is_none")
+    )]
     pub enable_while: Option<Expression>,
 
     /** (Optional) The duration of an object */
-    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde_support",
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub duration: Option<Expression>,
 
     /** (Optional) Makes the object repeat with given interval */
-    #[cfg_attr(feature = "serde_support", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde_support",
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub repeating: Option<Expression>,
 }

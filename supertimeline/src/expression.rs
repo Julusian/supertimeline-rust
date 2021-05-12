@@ -1,7 +1,7 @@
 use regex::Regex;
-use std::fmt::{Debug, Display, Error, Formatter};
 #[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display, Error, Formatter};
 
 const OPERATORS: &[&str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
 
@@ -79,9 +79,7 @@ impl ExpressionObj {
         Expression::Expression(Box::new(self))
     }
     pub fn create(l: Expression, o: ExpressionOperator, r: Expression) -> Expression {
-        Expression::Expression(Box::new(ExpressionObj{
-            l,o,r
-        }))
+        Expression::Expression(Box::new(ExpressionObj { l, o, r }))
     }
 }
 impl Display for ExpressionObj {

@@ -11,14 +11,14 @@ use std::rc::Rc;
 use supertimeline::get_state;
 use supertimeline::TimelineObjectInstance;
 use supertimeline::{
-    resolve_all_states, resolve_timeline, EventType, Expression, IsTimelineObject, NextEvent,
+    resolve_all_states, resolve_timeline, EventType, Expression, NextEvent,
     ResolveOptions, TimelineEnable,
 };
 
 #[test]
 fn simple_timeline() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -28,7 +28,7 @@ fn simple_timeline() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "graphic0".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -38,7 +38,7 @@ fn simple_timeline() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "graphic1".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -187,8 +187,8 @@ fn simple_timeline() {
 
 #[test]
 fn repeating_object() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -199,7 +199,7 @@ fn repeating_object() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "graphic0".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -395,8 +395,8 @@ fn repeating_object() {
 
 #[test]
 fn classes() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video0".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -408,7 +408,7 @@ fn classes() {
             classes: vec!["class0".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video1".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -420,7 +420,7 @@ fn classes() {
             classes: vec!["class0".to_string(), "class1".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "graphic0".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -429,7 +429,7 @@ fn classes() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "graphic1".to_string(),
             layer: "2".to_string(),
             enable: vec![TimelineEnable {
@@ -565,8 +565,8 @@ fn classes() {
 
 #[test]
 fn unique_instance_ids() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video0".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -576,7 +576,7 @@ fn unique_instance_ids() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video1".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -622,17 +622,19 @@ fn unique_instance_ids() {
 
 #[test]
 fn repeating_many() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![Box::new(SimpleTimelineObj {
-        id: "video0".to_string(),
-        layer: "0".to_string(),
-        enable: vec![TimelineEnable {
-            enable_start: Some(Expression::Number(0)),
-            enable_end: Some(Expression::Number(8)),
-            repeating: Some(Expression::Number(10)),
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
+            id: "video0".to_string(),
+            layer: "0".to_string(),
+            enable: vec![TimelineEnable {
+                enable_start: Some(Expression::Number(0)),
+                enable_end: Some(Expression::Number(8)),
+                repeating: Some(Expression::Number(10)),
+                ..Default::default()
+            }],
             ..Default::default()
-        }],
-        ..Default::default()
-    })];
+        }),
+    ];
 
     let options = ResolveOptions {
         time: 0,
@@ -649,15 +651,17 @@ fn repeating_many() {
 
 #[test]
 fn class_not_defined() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![Box::new(SimpleTimelineObj {
-        id: "video0".to_string(),
-        layer: "0".to_string(),
-        enable: vec![TimelineEnable {
-            enable_while: Some(Expression::String("!.class0".to_string())),
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
+            id: "video0".to_string(),
+            layer: "0".to_string(),
+            enable: vec![TimelineEnable {
+                enable_while: Some(Expression::String("!.class0".to_string())),
+                ..Default::default()
+            }],
             ..Default::default()
-        }],
-        ..Default::default()
-    })];
+        }),
+    ];
 
     let options = ResolveOptions {
         time: 0,
@@ -677,8 +681,8 @@ fn class_not_defined() {
 
 #[test]
 fn reference_duration() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video0".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -688,7 +692,7 @@ fn reference_duration() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video1".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -726,8 +730,8 @@ fn reference_duration() {
 
 #[test]
 fn reference_own_layer() {
-    let mut timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let mut timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video0".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -737,7 +741,7 @@ fn reference_own_layer() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video1".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -748,7 +752,7 @@ fn reference_own_layer() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video2".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -808,8 +812,8 @@ fn reference_own_layer() {
 
 #[test]
 fn reference_own_class() {
-    let mut timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let mut timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "video0".to_string(),
             layer: "0".to_string(),
             enable: vec![TimelineEnable {
@@ -820,7 +824,7 @@ fn reference_own_class() {
             classes: vec!["insert_after".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video1".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -832,7 +836,7 @@ fn reference_own_class() {
             classes: vec!["insert_after".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video2".to_string(),
             layer: "1".to_string(),
             enable: vec![TimelineEnable {
@@ -893,8 +897,8 @@ fn reference_own_class() {
 
 #[test]
 fn continuous_combined_negated_and_normal_classes_on_different_objects() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "parent".to_string(),
             layer: "p0".to_string(),
             priority: 0,
@@ -902,17 +906,19 @@ fn continuous_combined_negated_and_normal_classes_on_different_objects() {
                 enable_while: Some(Expression::Number(1)),
                 ..Default::default()
             }],
-            keyframes: vec![Box::new(SimpleKeyframe {
-                id: "kf0".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_while: Some(Expression::String(".playout & !.muted".to_string())),
+            keyframes: vec![
+                (SimpleKeyframe {
+                    id: "kf0".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_while: Some(Expression::String(".playout & !.muted".to_string())),
+                        ..Default::default()
+                    }],
                     ..Default::default()
-                }],
-                ..Default::default()
-            })],
+                }),
+            ],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "muted_playout1".to_string(),
             layer: "2".to_string(),
             priority: 0,
@@ -924,7 +930,7 @@ fn continuous_combined_negated_and_normal_classes_on_different_objects() {
             classes: vec!["playout".to_string(), "muted".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "muted_playout2".to_string(),
             layer: "2".to_string(),
             priority: 0,
@@ -936,7 +942,7 @@ fn continuous_combined_negated_and_normal_classes_on_different_objects() {
             classes: vec!["playout".to_string(), "muted".to_string()],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "unmuted_playout1".to_string(),
             layer: "2".to_string(),
             priority: 0,

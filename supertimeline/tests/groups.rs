@@ -11,54 +11,56 @@ use supertimeline::get_state;
 use supertimeline::NextEvent;
 use supertimeline::TimelineObjectInstance;
 use supertimeline::{
-    resolve_all_states, resolve_timeline, EventType, Expression, IsTimelineObject, ResolveOptions,
+    resolve_all_states, resolve_timeline, EventType, Expression, ResolveOptions,
     TimelineEnable,
 };
 
 #[test]
 fn simple_group() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![Box::new(SimpleTimelineObj {
-        id: "group".to_string(),
-        layer: "0".to_string(),
-        enable: vec![TimelineEnable {
-            enable_start: Some(Expression::Number(10)),
-            enable_end: Some(Expression::Number(100)),
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
+            id: "group".to_string(),
+            layer: "0".to_string(),
+            enable: vec![TimelineEnable {
+                enable_start: Some(Expression::Number(10)),
+                enable_end: Some(Expression::Number(100)),
+                ..Default::default()
+            }],
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child0".to_string(),
+                    layer: "1".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("5".to_string())), // 15
+                        duration: Some(Expression::Number(10)),                  // 25
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                (SimpleTimelineObj {
+                    id: "child1".to_string(),
+                    layer: "1".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("#child0.end".to_string())), // 25
+                        duration: Some(Expression::Number(10)),                            // 35
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                (SimpleTimelineObj {
+                    id: "child2".to_string(),
+                    layer: "2".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("-1".to_string())), // 9, will be capped in parent
+                        duration: Some(Expression::Number(150)), // 160, will be capped in parent
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+            ]),
             ..Default::default()
-        }],
-        children: Some(vec![
-            Box::new(SimpleTimelineObj {
-                id: "child0".to_string(),
-                layer: "1".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("5".to_string())), // 15
-                    duration: Some(Expression::Number(10)),                  // 25
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
-            Box::new(SimpleTimelineObj {
-                id: "child1".to_string(),
-                layer: "1".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("#child0.end".to_string())), // 25
-                    duration: Some(Expression::Number(10)),                            // 35
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
-            Box::new(SimpleTimelineObj {
-                id: "child2".to_string(),
-                layer: "2".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("-1".to_string())), // 9, will be capped in parent
-                    duration: Some(Expression::Number(150)), // 160, will be capped in parent
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
-        ]),
-        ..Default::default()
-    })];
+        }),
+    ];
 
     let options = ResolveOptions {
         time: 0,
@@ -126,8 +128,8 @@ fn simple_group() {
 
 #[test]
 fn etheral_groups() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "group0".to_string(),
             layer: "".to_string(),
             enable: vec![TimelineEnable {
@@ -135,18 +137,20 @@ fn etheral_groups() {
                 enable_end: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            children: Some(vec![Box::new(SimpleTimelineObj {
-                id: "child0".to_string(),
-                layer: "1".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("5".to_string())), // 15
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child0".to_string(),
+                    layer: "1".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("5".to_string())), // 15
+                        ..Default::default()
+                    }],
                     ..Default::default()
-                }],
-                ..Default::default()
-            })]),
+                }),
+            ]),
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "group1".to_string(),
             layer: "".to_string(),
             enable: vec![TimelineEnable {
@@ -154,15 +158,17 @@ fn etheral_groups() {
                 enable_end: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            children: Some(vec![Box::new(SimpleTimelineObj {
-                id: "child1".to_string(),
-                layer: "2".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("5".to_string())), // 55
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child1".to_string(),
+                    layer: "2".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("5".to_string())), // 55
+                        ..Default::default()
+                    }],
                     ..Default::default()
-                }],
-                ..Default::default()
-            })]),
+                }),
+            ]),
             ..Default::default()
         }),
     ];
@@ -267,8 +273,8 @@ fn etheral_groups() {
 #[test]
 fn solid_groups() {
     // "solid groups" are groups with a layer
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "group0".to_string(),
             layer: "g0".to_string(),
             enable: vec![TimelineEnable {
@@ -276,18 +282,20 @@ fn solid_groups() {
                 enable_end: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            children: Some(vec![Box::new(SimpleTimelineObj {
-                id: "child0".to_string(),
-                layer: "1".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("5".to_string())), // 15
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child0".to_string(),
+                    layer: "1".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("5".to_string())), // 15
+                        ..Default::default()
+                    }],
                     ..Default::default()
-                }],
-                ..Default::default()
-            })]),
+                }),
+            ]),
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "group1".to_string(),
             layer: "g0".to_string(),
             enable: vec![TimelineEnable {
@@ -295,15 +303,17 @@ fn solid_groups() {
                 enable_end: Some(Expression::Number(100)),
                 ..Default::default()
             }],
-            children: Some(vec![Box::new(SimpleTimelineObj {
-                id: "child1".to_string(),
-                layer: "2".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("5".to_string())), // 55
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child1".to_string(),
+                    layer: "2".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("5".to_string())), // 55
+                        ..Default::default()
+                    }],
                     ..Default::default()
-                }],
-                ..Default::default()
-            })]),
+                }),
+            ]),
             ..Default::default()
         }),
     ];
@@ -438,39 +448,41 @@ fn solid_groups() {
 
 #[test]
 fn cap_in_repeating_parent_group() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![Box::new(SimpleTimelineObj {
-        id: "group0".to_string(),
-        layer: "g0".to_string(),
-        enable: vec![TimelineEnable {
-            enable_start: Some(Expression::Number(0)), // 0, 100
-            enable_end: Some(Expression::Number(80)),  // 80, 180
-            repeating: Some(Expression::Number(100)),
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
+            id: "group0".to_string(),
+            layer: "g0".to_string(),
+            enable: vec![TimelineEnable {
+                enable_start: Some(Expression::Number(0)), // 0, 100
+                enable_end: Some(Expression::Number(80)),  // 80, 180
+                repeating: Some(Expression::Number(100)),
+                ..Default::default()
+            }],
+            children: Some(vec![
+                (SimpleTimelineObj {
+                    id: "child0".to_string(),
+                    layer: "1".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::Number(50)), // 50, 150
+                        duration: Some(Expression::Number(20)),     // 70, 170
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+                (SimpleTimelineObj {
+                    id: "child1".to_string(),
+                    layer: "2".to_string(),
+                    enable: vec![TimelineEnable {
+                        enable_start: Some(Expression::String("#child0.end".to_string())), // 70, 170
+                        duration: Some(Expression::Number(50)), // 120 (to be capped at 100), 220 (to be capped at 200)
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }),
+            ]),
             ..Default::default()
-        }],
-        children: Some(vec![
-            Box::new(SimpleTimelineObj {
-                id: "child0".to_string(),
-                layer: "1".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::Number(50)), // 50, 150
-                    duration: Some(Expression::Number(20)),     // 70, 170
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
-            Box::new(SimpleTimelineObj {
-                id: "child1".to_string(),
-                layer: "2".to_string(),
-                enable: vec![TimelineEnable {
-                    enable_start: Some(Expression::String("#child0.end".to_string())), // 70, 170
-                    duration: Some(Expression::Number(50)), // 120 (to be capped at 100), 220 (to be capped at 200)
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
-        ]),
-        ..Default::default()
-    })];
+        }),
+    ];
 
     let options = ResolveOptions {
         time: 0,
@@ -594,9 +606,9 @@ fn cap_in_repeating_parent_group() {
 #[test]
 fn referencing_child_in_parent_group() {
     // This shouldn't change the outcome, since it's changing from a reference that resolves to { while: '1' }
-    let timeline = |child0_while: &str| -> Vec<Box<dyn IsTimelineObject>> {
+    let timeline = |child0_while: &str| -> Vec<SimpleTimelineObj> {
         vec![
-            Box::new(SimpleTimelineObj {
+            (SimpleTimelineObj {
                 id: "group0".to_string(),
                 layer: "g0".to_string(),
                 enable: vec![TimelineEnable {
@@ -604,18 +616,20 @@ fn referencing_child_in_parent_group() {
                     enable_end: Some(Expression::Number(80)),
                     ..Default::default()
                 }],
-                children: Some(vec![Box::new(SimpleTimelineObj {
-                    id: "child0".to_string(),
-                    layer: "1".to_string(),
-                    enable: vec![TimelineEnable {
-                        enable_while: Some(Expression::String(child0_while.to_string())),
+                children: Some(vec![
+                    (SimpleTimelineObj {
+                        id: "child0".to_string(),
+                        layer: "1".to_string(),
+                        enable: vec![TimelineEnable {
+                            enable_while: Some(Expression::String(child0_while.to_string())),
+                            ..Default::default()
+                        }],
                         ..Default::default()
-                    }],
-                    ..Default::default()
-                })]),
+                    }),
+                ]),
                 ..Default::default()
             }),
-            Box::new(SimpleTimelineObj {
+            (SimpleTimelineObj {
                 id: "other".to_string(),
                 layer: "other".to_string(),
                 enable: vec![TimelineEnable {
@@ -624,7 +638,7 @@ fn referencing_child_in_parent_group() {
                 }],
                 ..Default::default()
             }),
-            Box::new(SimpleTimelineObj {
+            (SimpleTimelineObj {
                 id: "refChild0".to_string(),
                 layer: "42".to_string(),
                 enable: vec![TimelineEnable {
@@ -683,8 +697,8 @@ fn referencing_child_in_parent_group() {
 
 #[test]
 fn content_start_time_in_capped_object() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "extRef".to_string(),
             layer: "e0".to_string(),
             enable: vec![TimelineEnable {
@@ -694,7 +708,7 @@ fn content_start_time_in_capped_object() {
             }],
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "myGroup".to_string(),
             layer: "g0".to_string(),
             enable: vec![TimelineEnable {
@@ -703,7 +717,7 @@ fn content_start_time_in_capped_object() {
                 ..Default::default()
             }],
             children: Some(vec![
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "video".to_string(),
                     layer: "1".to_string(),
                     enable: vec![TimelineEnable {
@@ -713,7 +727,7 @@ fn content_start_time_in_capped_object() {
                     }],
                     ..Default::default()
                 }),
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "interrupting".to_string(),
                     layer: "1".to_string(),
                     enable: vec![TimelineEnable {
@@ -723,7 +737,7 @@ fn content_start_time_in_capped_object() {
                     }],
                     ..Default::default()
                 }),
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "video2".to_string(),
                     layer: "2".to_string(),
                     enable: vec![TimelineEnable {
@@ -733,7 +747,7 @@ fn content_start_time_in_capped_object() {
                     }],
                     ..Default::default()
                 }),
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "interrupting2".to_string(),
                     layer: "2".to_string(),
                     enable: vec![TimelineEnable {
@@ -827,8 +841,8 @@ fn content_start_time_in_capped_object() {
 
 #[test]
 fn parent_references() {
-    let timeline: Vec<Box<dyn IsTimelineObject>> = vec![
-        Box::new(SimpleTimelineObj {
+    let timeline: Vec<SimpleTimelineObj> = vec![
+        (SimpleTimelineObj {
             id: "parent".to_string(),
             layer: "p0".to_string(),
             priority: 0,
@@ -837,7 +851,7 @@ fn parent_references() {
                 ..Default::default()
             }],
             children: Some(vec![
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "video0".to_string(),
                     layer: "0".to_string(),
                     priority: 0,
@@ -848,7 +862,7 @@ fn parent_references() {
                     }],
                     ..Default::default()
                 }),
-                Box::new(SimpleTimelineObj {
+                (SimpleTimelineObj {
                     id: "video1".to_string(),
                     layer: "1".to_string(),
                     priority: 0,
@@ -862,7 +876,7 @@ fn parent_references() {
             ]),
             ..Default::default()
         }),
-        Box::new(SimpleTimelineObj {
+        (SimpleTimelineObj {
             id: "video2".to_string(),
             layer: "2".to_string(),
             priority: 0,

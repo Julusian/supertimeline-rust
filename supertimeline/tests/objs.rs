@@ -6,13 +6,13 @@ pub struct SimpleTimelineObj {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
     pub layer: String,
-    pub keyframes: Vec<Box<dyn IsTimelineKeyframe>>,
+    pub keyframes: Vec<SimpleKeyframe>,
     pub classes: Vec<String>,
     pub disabled: bool,
-    pub children: Option<Vec<Box<dyn IsTimelineObject>>>,
+    pub children: Option<Vec<SimpleTimelineObj>>,
     pub priority: u64,
 }
-impl IsTimelineObject for SimpleTimelineObj {
+impl IsTimelineObject<SimpleTimelineObj, SimpleKeyframe> for SimpleTimelineObj {
     fn id(&self) -> &str {
         &self.id
     }
@@ -22,7 +22,7 @@ impl IsTimelineObject for SimpleTimelineObj {
     fn layer(&self) -> &str {
         &self.layer
     }
-    fn keyframes(&self) -> Option<&Vec<Box<dyn IsTimelineKeyframe>>> {
+    fn keyframes(&self) -> Option<&Vec<SimpleKeyframe>> {
         Some(self.keyframes.as_ref())
     }
     fn classes(&self) -> Option<&Vec<String>> {
@@ -31,7 +31,7 @@ impl IsTimelineObject for SimpleTimelineObj {
     fn disabled(&self) -> bool {
         self.disabled
     }
-    fn children(&self) -> Option<&Vec<Box<dyn IsTimelineObject>>> {
+    fn children(&self) -> Option<&Vec<SimpleTimelineObj>> {
         self.children.as_ref()
     }
     fn priority(&self) -> u64 {

@@ -17,7 +17,11 @@ pub trait IsTimelineObjectChildren {
 }
 */
 
-pub trait IsTimelineObject<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe: IsTimelineKeyframe> /*: IsTimelineObjectChildren */ {
+pub trait IsTimelineObject<
+    TChild: IsTimelineObject<TChild, TKeyframe>,
+    TKeyframe: IsTimelineKeyframe,
+> /*: IsTimelineObjectChildren */
+{
     fn id(&self) -> &str;
     fn enable(&self) -> &Vec<TimelineEnable>;
     fn layer(&self) -> &str;
@@ -52,7 +56,10 @@ pub struct ResolveOptions {
     //                                        // cache?: ResolverCache
 }
 
-fn add_object_to_resolved_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe: IsTimelineKeyframe>(
+fn add_object_to_resolved_timeline<
+    TChild: IsTimelineObject<TChild, TKeyframe>,
+    TKeyframe: IsTimelineKeyframe,
+>(
     timeline: &mut ResolvedTimeline,
     resolving_objects: &mut HashMap<String, ResolvingTimelineObject>,
     obj: ResolvingTimelineObject,
@@ -89,7 +96,10 @@ fn add_object_to_resolved_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, 
     resolving_objects.insert(obj_id, obj);
 }
 
-fn add_object_to_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe: IsTimelineKeyframe>(
+fn add_object_to_timeline<
+    TChild: IsTimelineObject<TChild, TKeyframe>,
+    TKeyframe: IsTimelineKeyframe,
+>(
     timeline: &mut ResolvedTimeline,
     resolving_objects: &mut HashMap<String, ResolvingTimelineObject>,
     obj: &TChild,
@@ -144,7 +154,12 @@ fn add_object_to_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe
                     is_keyframe: true,
                 },
             };
-            add_object_to_resolved_timeline::<TChild, TKeyframe>(timeline, resolving_objects, resolved_obj, None)
+            add_object_to_resolved_timeline::<TChild, TKeyframe>(
+                timeline,
+                resolving_objects,
+                resolved_obj,
+                None,
+            )
         }
     }
 
@@ -161,7 +176,10 @@ pub struct ResolvedTimeline {
     pub layers: HashMap<String, Vec<String>>,
 }
 
-pub fn resolve_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe: IsTimelineKeyframe>(
+pub fn resolve_timeline<
+    TChild: IsTimelineObject<TChild, TKeyframe>,
+    TKeyframe: IsTimelineKeyframe,
+>(
     timeline: &[TChild],
     options: ResolveOptions,
 ) -> Result<Box<ResolvedTimeline>, ResolveError> {
@@ -175,13 +193,7 @@ pub fn resolve_timeline<TChild: IsTimelineObject<TChild, TKeyframe>, TKeyframe: 
     // Step 1: pre-populate resolvedTimeline with objects
     let mut resolving_objects = HashMap::new();
     for obj in timeline {
-        add_object_to_timeline(
-            &mut resolved_timeline,
-            &mut resolving_objects,
-            obj,
-            0,
-            None,
-        );
+        add_object_to_timeline(&mut resolved_timeline, &mut resolving_objects, obj, 0, None);
     }
 
     let resolver_context = ResolverContext::create(&resolved_timeline, resolving_objects);

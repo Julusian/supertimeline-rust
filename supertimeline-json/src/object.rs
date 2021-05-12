@@ -1,6 +1,4 @@
 use serde::{Deserialize, Serialize};
-// use supertimeline::ExpressionObj;
-// use supertimeline::ExpressionOperator;
 use supertimeline::IsTimelineKeyframe;
 use supertimeline::IsTimelineObject;
 use supertimeline::TimelineEnable;
@@ -8,7 +6,6 @@ use supertimeline::TimelineEnable;
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct JsonTimelineObjectKeyframe {
     pub id: String,
-    // #[serde(default, with = "vec_timeline_enable")]
     pub enable: Vec<TimelineEnable>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub classes: Option<Vec<String>>,
@@ -22,7 +19,6 @@ impl IsTimelineKeyframe for JsonTimelineObjectKeyframe {
     fn enable(&self) -> &Vec<TimelineEnable> {
         &self.enable
     }
-    //fn duration (&self) -> Option<TimelineKeyframeDuration>;
     fn classes(&self) -> Option<&Vec<String>> {
         self.classes.as_ref()
     }
@@ -34,7 +30,6 @@ impl IsTimelineKeyframe for JsonTimelineObjectKeyframe {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct JsonTimelineObject {
     pub id: String,
-    // #[serde(default, with = "vec_timeline_enable")]
     pub enable: Vec<TimelineEnable>,
     pub layer: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,47 +68,6 @@ impl IsTimelineObject<JsonTimelineObject, JsonTimelineObjectKeyframe> for JsonTi
         self.priority
     }
 }
-
-// mod vec_timeline_enable {
-//     use serde::ser::{SerializeSeq, SerializeStruct};
-//     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-//     use supertimeline::Expression;
-//     use supertimeline::TimelineEnable;
-
-//     // fn serialize_expression<S>(value: &Option<Expression>, serializer: S) -> Result<S::Ok, S::Error>  where
-//     // S: Serializer,{
-//     //     // TODO
-//     // }
-
-//     pub fn serialize<S>(value: &Vec<TimelineEnable>, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut seq = serializer.serialize_seq(Some(value.len()))?;
-//         for e in value {
-//             // let mut state = seq.serialize_struct("TimelineEnable", 5)?;
-//             // // state.serialize_field()
-//             // // state.serialize_field("r", &self.r)?;
-//             // // state.serialize_field("g", &self.g)?;
-//             // // state.serialize_field("b", &self.b)?;
-//             // state.end()?;
-//         }
-//         seq.end()
-//     }
-
-//     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<TimelineEnable>, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         // #[derive(Deserialize)]
-//         // struct Helper(#[serde(with = "ExternalStructDef")] ExternalStruct);
-
-//         // let helper = Option::deserialize(deserializer)?;
-//         // Ok(helper.map(|Helper(external)| external))
-//         // TODO
-//         Ok(vec![])
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -160,47 +114,3 @@ mod tests {
         panic!();
     }
 }
-
-// #[derive(Serialize, Deserialize)]
-// #[serde(remote = "ExpressionOperator")]
-// enum ExpressionOperatorRef {
-//     And,
-//     Or,
-//     Add,
-//     Subtract,
-//     Multiply,
-//     Divide,
-//     Remainder,
-// }
-// #[derive(Serialize, Deserialize)]
-// #[serde(remote = "Expression")]
-// enum ExpressionRef {
-//     Null,
-//     Number(i64),
-//     String(String),
-//     Expression(Box<ExpressionObjRef>),
-//     Invert(Box<ExpressionRef>),
-// }
-
-// #[derive(Serialize, Deserialize)]
-// #[serde(remote = "ExpressionObj")]
-// struct ExpressionObjRef {
-//     l: ExpressionRef,
-//     o: ExpressionOperatorRef,
-//     r: ExpressionRef,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// #[serde(remote = "TimelineEnable")]
-// struct TimelineEnableRef {
-//     #[serde(with = "ExpressionRef")]
-//     enable_start: Option<Expression>,
-//     #[serde(with = "ExpressionRef")]
-//     enable_end: Option<Expression>,
-//     #[serde(with = "ExpressionRef")]
-//     enable_while: Option<Expression>,
-//     #[serde(with = "ExpressionRef")]
-//     duration: Option<Expression>,
-//     #[serde(with = "ExpressionRef")]
-//     repeating: Option<Expression>,
-// }
