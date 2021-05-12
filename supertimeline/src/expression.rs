@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::fmt::{Debug, Display, Error, Formatter};
+#[cfg(feature = "serde_support")]
 use serde::{Deserialize, Serialize};
 
 const OPERATORS: &[&str] = &["&", "|", "+", "-", "*", "/", "%", "!"];
@@ -12,22 +13,22 @@ lazy_static::lazy_static! {
     };
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ExpressionOperator {
-    #[serde(rename = "+")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "+"))]
     And,
-    #[serde(rename = "|")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "|"))]
     Or,
-    #[serde(rename = "&")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "&"))]
     Add,
-    #[serde(rename = "-")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "-"))]
     Subtract,
-    #[serde(rename = "*")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "*"))]
     Multiply,
-    #[serde(rename = "/")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "/"))]
     Divide,
-    #[serde(rename = "%")]
+    #[cfg_attr(feature = "serde_support", serde(rename = "%"))]
     Remainder,
 }
 impl Display for ExpressionOperator {
@@ -45,8 +46,8 @@ impl Display for ExpressionOperator {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde_support", serde(untagged))]
 pub enum Expression {
     Null,
     Number(i64),
@@ -66,7 +67,7 @@ impl Display for Expression {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionObj {
     pub l: Expression,
