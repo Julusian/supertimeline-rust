@@ -11,6 +11,8 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Mutex;
 use velcro::hash_map;
+#[cfg(feature = "serde_support")]
+use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Clone, PartialOrd)]
 pub enum EventType {
@@ -26,6 +28,7 @@ pub struct NextEvent {
     pub object_id: String,
 }
 
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ResolvedTimelineObject {
     pub resolved: TimelineObjectResolved,
     pub info: Rc<TimelineObjectInfo>,

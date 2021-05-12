@@ -1,7 +1,10 @@
 use crate::util::Time;
 use std::collections::HashMap;
+#[cfg(feature = "serde_support")]
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct Cap {
     pub id: String, // id of the parent
     pub start: Time,

@@ -332,6 +332,7 @@ pub fn apply_repeating_instances(
     options: &ResolveOptions,
 ) -> Vec<TimelineObjectInstance> {
     if let Some(repeat_time) = &repeat_time {
+        if repeat_time.value != 0 {
         let mut repeated_instances = Vec::new();
 
         // TODO - why was this necessary?
@@ -411,6 +412,9 @@ pub fn apply_repeating_instances(
     } else {
         instances
     }
+} else {
+    instances
+}
 }
 
 pub fn apply_parent_instances(

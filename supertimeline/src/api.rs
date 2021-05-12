@@ -8,6 +8,8 @@ use crate::util::Time;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::RwLock;
+#[cfg(feature = "serde_support")]
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LIMIT_COUNT: usize = 2;
 
@@ -41,7 +43,9 @@ pub trait IsTimelineKeyframe {
     fn disabled(&self) -> bool;
 }
 
+
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ResolveOptions {
     /** The base time to use when resolving. Usually you want to input the current time (Date.now()) here. */
     pub time: Time,
@@ -166,6 +170,7 @@ fn add_object_to_timeline<
     add_object_to_resolved_timeline(timeline, resolving_objects, resolved_obj, Some(obj));
 }
 
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct ResolvedTimeline {
     pub options: ResolveOptions,
     /** Map of all objects on timeline */

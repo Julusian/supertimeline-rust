@@ -204,7 +204,7 @@ mod tests {
         let parsed:Vec<JsonTimelineObject >= serde_path_to_error::deserialize(&mut deserializer).unwrap();
 
 
-        println!("got back {:#?}", parsed);
+        // println!("got back {:#?}", parsed);
         // panic!();
 
         let options = ResolveOptions {
@@ -223,6 +223,10 @@ mod tests {
         let duration = start.elapsed();
 
         // println!("got back {:#?}", state);
+
+        let result = serde_json::to_string(&resolved).unwrap();
+
+        std::fs::write("output.json", result).unwrap();
 
         println!("it took {}", duration.as_millis());
         panic!();

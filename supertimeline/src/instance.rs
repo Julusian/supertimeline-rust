@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct TimelineObjectInfo {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
@@ -28,6 +29,7 @@ pub struct TimelineObjectResolvedWip {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct TimelineObjectResolved {
     // pub status: Rc<Atomic<TimelineObjectResolvingStatus>>,
     /** True if object is referencing itself (only directly, not indirectly via another object) */
@@ -40,6 +42,7 @@ pub struct TimelineObjectResolved {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct TimelineObjectInstance {
     /** id of the instance (unique)  */
     pub id: String,

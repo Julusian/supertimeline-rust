@@ -13,6 +13,6 @@ serde_support = ["serde"]
 regex = "1"
 lazy_static = "1.4.0"
 velcro = "0.5.3"
-serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive","rc"], optional = true }
 
 [dev-dependencies]
