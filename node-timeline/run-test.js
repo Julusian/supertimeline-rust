@@ -96,14 +96,15 @@ for (const i in resolved.objects) {
 				is_first: inst.isFirst ?? false,
 				start: ceil(inst.start),
 				end: ceil(inst.end),
-				original_start: ceil(inst.originalStart ?? null),
-				original_end: ceil(inst.originalEnd ?? null),
+				// TODO - why are these original_* different? I don't think it matters though, as there is no change
+				original_start: old.resolved.instances.length === 1 && inst.originalStart === inst.start ? null : ceil(inst.originalStart ?? null),
+				original_end: old.resolved.instances.length === 1 && inst.originalEnd === inst.end ? null :ceil(inst.originalEnd ?? null),
 				references: inst.references.sort(),
 				caps: tidyCaps(inst.caps ?? []),
 				from_instance_id: old.fromInstanceId ?? null,
 				// raw: inst,
 			})),
-			direct_references: Array.from(new Set(old.resolved.directReferences)).sort(), // TODO - why is the order different?
+			direct_references: Array.from(new Set(old.resolved.directReferences)).sort(),
 		},
 		info: {
 			id: old.id,
