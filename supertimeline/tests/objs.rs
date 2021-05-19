@@ -10,7 +10,7 @@ pub struct SimpleTimelineObj {
     pub classes: Vec<String>,
     pub disabled: bool,
     pub children: Option<Vec<SimpleTimelineObj>>,
-    pub priority: u64,
+    pub priority: i64,
 }
 impl IsTimelineObject<SimpleTimelineObj, SimpleKeyframe> for SimpleTimelineObj {
     fn id(&self) -> &str {
@@ -34,7 +34,7 @@ impl IsTimelineObject<SimpleTimelineObj, SimpleKeyframe> for SimpleTimelineObj {
     fn children(&self) -> Option<&Vec<SimpleTimelineObj>> {
         self.children.as_ref()
     }
-    fn priority(&self) -> u64 {
+    fn priority(&self) -> i64 {
         self.priority
     }
 }
