@@ -5,7 +5,7 @@ use crate::events::{EventForInstance, EventForInstanceExt};
 use crate::expression::interpret_expression;
 use crate::expression::is_constant;
 use crate::expression::ExpressionError;
-use crate::expression::{simplify_expression, Expression};
+use crate::expression::{hack_boolean_expression, simplify_expression, Expression};
 use crate::instance::TimelineObjectInfo;
 use crate::instance::TimelineObjectInstance;
 use crate::instance::TimelineObjectResolved;
@@ -181,10 +181,12 @@ impl<'a> ResolverContext<'a> {
                 LookupExpressionResultType::Null => None,
             };
 
+            let hacked_while = hack_boolean_expression(enable.enable_while.as_ref());
+
             let start = simplify_expression(
-                enable
-                    .enable_while
+                hacked_while
                     .as_ref()
+                    .or_else(|| enable.enable_while.as_ref())
                     .or_else(|| enable.enable_start.as_ref())
                     .unwrap_or(&Expression::Null),
             )

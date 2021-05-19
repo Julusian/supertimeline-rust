@@ -94,7 +94,7 @@ for (const i in resolved.objects) {
 			instances: old.resolved.instances.map(inst => ({
 				id: updateId(inst.id),
 				is_first: inst.isFirst ?? false,
-				start: ceil(inst.start || (old.parentId ? 0 : 1)), // TODO - why is this different?
+				start: ceil(inst.start),
 				end: ceil(inst.end),
 				original_start: ceil(inst.originalStart ?? null),
 				original_end: ceil(inst.originalEnd ?? null),

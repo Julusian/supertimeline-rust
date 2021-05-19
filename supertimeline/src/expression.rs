@@ -51,6 +51,7 @@ impl Display for ExpressionOperator {
 pub enum Expression {
     Null,
     Number(i64),
+    Bool(bool),
     String(String),
     Expression(Box<ExpressionObj>),
     #[cfg_attr(feature = "serde_support", serde(skip))]
@@ -61,6 +62,7 @@ impl Display for Expression {
         match self {
             Expression::Null => write!(f, "null"),
             Expression::Number(val) => write!(f, "{}", val),
+            Expression::Bool(val) => write!(f, "{}", val),
             Expression::String(val) => write!(f, "\"{}\"", val),
             Expression::Expression(val) => write!(f, "{}", val),
             Expression::Invert(val) => write!(f, "!{}", val),
@@ -93,9 +95,39 @@ pub fn is_constant(expression: &Expression) -> bool {
     match expression {
         Expression::Null => true,
         Expression::Number(_) => true,
+        Expression::Bool(_) => true,
         Expression::String(_) => false,
         Expression::Expression(_) => true,
         Expression::Invert(inner_expr) => is_constant(inner_expr),
+    }
+}
+
+pub fn hack_boolean_expression(expression: Option<&Expression>) -> Option<Expression> {
+    if let Some(expr) = expression {
+        match expr {
+            Expression::Number(val) => match val {
+                0 => Some(Expression::Bool(false)),
+                1 => Some(Expression::Bool(true)),
+                _ => None,
+            },
+            Expression::String(str) => {
+                // handle booleans
+                if str.eq("false") {
+                    Some(Expression::Bool(false))
+                } else if str.eq("true") {
+                    Some(Expression::Bool(true))
+                } else if str.eq("0") {
+                    Some(Expression::Bool(false))
+                } else if str.eq("1") {
+                    Some(Expression::Bool(true))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    } else {
+        None
     }
 }
 
@@ -104,8 +136,17 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
         Expression::String(str) => {
             let new_expr = interpret_expression_string(str)?;
             match &new_expr {
-                // recurse only if it is not a string, to avoid an infinite loop
-                Expression::String(_str) => Ok(new_expr),
+                Expression::String(str) => {
+                    // handle booleans
+                    if str.eq("false") {
+                        Ok(Expression::Bool(false))
+                    } else if str.eq("true") {
+                        Ok(Expression::Bool(true))
+                    } else {
+                        // recurse only if it is not a string, to avoid an infinite loop
+                        Ok(new_expr)
+                    }
+                }
                 _ => simplify_expression(&new_expr),
             }
         }
@@ -115,6 +156,7 @@ pub fn simplify_expression(expression: &Expression) -> Result<Expression, Expres
         }
 
         Expression::Number(val) => Ok(Expression::Number(*val)),
+        Expression::Bool(val) => Ok(Expression::Bool(*val)),
         Expression::Expression(obj) => {
             let l = simplify_expression(&obj.l)?;
             let r = simplify_expression(&obj.r)?;
@@ -144,6 +186,7 @@ pub fn interpret_expression(expression: &Expression) -> Result<Expression, Expre
     match expression {
         Expression::Null => Ok(Expression::Null),
         Expression::Number(val) => Ok(Expression::Number(*val)),
+        Expression::Bool(val) => Ok(Expression::Bool(*val)),
         Expression::String(val) => interpret_expression_string(&val),
         Expression::Expression(expr_obj) => {
             let l = interpret_expression(&expr_obj.l)?;

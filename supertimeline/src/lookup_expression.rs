@@ -53,6 +53,22 @@ pub fn lookup_expression(
             }),
             all_references: HashSet::new(),
         }),
+        Expression::Bool(val) => {
+            if *val {
+                Ok(LookupExpressionResult {
+                    result: LookupExpressionResultType::TimeRef(TimeWithReference {
+                        value: 0,
+                        references: HashSet::new(),
+                    }),
+                    all_references: HashSet::new(),
+                })
+            } else {
+                Ok(LookupExpressionResult {
+                    result: LookupExpressionResultType::Instances(vec![]),
+                    all_references: HashSet::new(),
+                })
+            }
+        }
         Expression::String(str) => lookup_expression_str(ctx, obj, str, default_ref_type),
         Expression::Expression(expr_obj) => {
             lookup_expression_obj(ctx, obj, expr_obj, default_ref_type)
