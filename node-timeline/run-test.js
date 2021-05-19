@@ -103,12 +103,12 @@ for (const i in resolved.objects) {
 				from_instance_id: old.fromInstanceId ?? null,
 				// raw: inst,
 			})),
-			direct_references: old.resolved.directReferences.sort(), // TODO - why is this different?
+			direct_references: Array.from(new Set(old.resolved.directReferences)).sort(), // TODO - why is the order different?
 		},
 		info: {
 			id: old.id,
 			enable: (Array.isArray(old.enable) ? old.enable : [old.enable]).map(e => ({...e, start: ceil(e.start)})),
-			priority: (old.priority ?? 0) * 1000,
+			priority: Math.floor((old.priority ?? 0) * 1000),
 			disabled: old.disabled ?? false,
 			layer: old.layer,
 			depth: old.resolved.levelDeep,

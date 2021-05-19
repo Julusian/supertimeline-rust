@@ -146,23 +146,7 @@ fn lookup_expression_str(
     expr_str: &str,
     default_ref_type: &ObjectRefType,
 ) -> Result<LookupExpressionResult, ResolveError> {
-    // TODO
-    // if (isConstant(expr)) {
-    //     if (expr.match(/^true$/i)) {
-    //     return {
-    //     instances: {
-    //     value: 0,
-    //     references: []
-    //     },
-    //     allReferences: []
-    //     }
-    //     } else if (expr.match(/^false$/i)) {
-    //     return {
-    //     instances: [],
-    //     allReferences: []
-    //     }
-    //     }
-    // }
+    // Note: bool expressions are 'parsed' elsewhere
 
     if let Some(expression_references) = match_expression_references(ctx, expr_str) {
         let mut referenced_objs: Vec<&ResolvingTimelineObject> = Vec::new();
@@ -318,7 +302,10 @@ fn lookup_expression_str(
                 }
             }
         } else {
-            Ok(LookupExpressionResult::null())
+            Ok(LookupExpressionResult {
+                result: LookupExpressionResultType::Null,
+                all_references: expression_references.all_references,
+            })
         }
     } else {
         Ok(LookupExpressionResult::null())

@@ -97,7 +97,7 @@ pub fn is_constant(expression: &Expression) -> bool {
         Expression::Number(_) => true,
         Expression::Bool(_) => true,
         Expression::String(_) => false,
-        Expression::Expression(_) => true,
+        Expression::Expression(_) => false,
         Expression::Invert(inner_expr) => is_constant(inner_expr),
     }
 }

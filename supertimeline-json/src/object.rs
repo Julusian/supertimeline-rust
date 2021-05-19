@@ -127,7 +127,7 @@ mod tests {
     #[test]
     // #[ignore]
     fn parse() {
-        let j = mangle_json_enable(include_str!("../../dumps/real2.json")).unwrap();
+        let j = mangle_json_enable(include_str!("../../dumps/real.json")).unwrap();
 
         let mut deserializer = serde_json::Deserializer::from_str(&j);
         let parsed: Vec<JsonTimelineObject> =
