@@ -14,6 +14,7 @@ const iterations = Number(args[3])
 const tl = JSON.parse(fs.readFileSync(filename).toString())
 
 function clean(obj) {
+	// this is to make the test fair, as rust doesnt handle the content at all
 	obj.content = {}
 	if (obj.children) {
 		for (const ch of obj.children) {
@@ -31,22 +32,64 @@ for (const obj of tl) {
 }
 
 let resolved
-const times = []
+let times = []
 
-for(let i = 0; i < iterations; i++) {
-    const start = Date.now()
+for (let i = 0; i < iterations; i++) {
+	resolved = null
+    const start = process.hrtime.bigint();
 
     resolved = Resolver.resolveTimeline(tl, { time: 1597158621470 })
     // const states = Resolver.resolveAllStates(resolved)
 
     // const state = Resolver.getState(states, 1597158621470 + 5000)
 
-    const end = Date.now()
-    times.push(end - start)
+    const end = process.hrtime.bigint();
+	times.push(Number(end - start) / 1000000)
+	
 }
 
 const sum = times.reduce((p, v) => p + v, 0)
-console.log(`Completed ${times.length} iterations in ${sum}ms, averaging ${sum / times.length}ms`)
+console.log(`Completed ${times.length} resolve iterations in ${sum}ms, averaging ${sum / times.length}ms`)
+
+
+let allStates
+times = []
+
+for (let i = 0; i < iterations; i++) {
+	allStates = null
+    const start = process.hrtime.bigint();
+
+    allStates = Resolver.resolveAllStates(resolved)
+    // const states = Resolver.resolveAllStates(resolved)
+
+    // const state = Resolver.getState(states, 1597158621470 + 5000)
+
+    const end = process.hrtime.bigint();
+    times.push(Number(end - start)/1000000)
+}
+
+const sum2 = times.reduce((p, v) => p + v, 0)
+console.log(`Completed ${times.length} allStates iterations in ${sum2}ms, averaging ${sum2 / times.length}ms`)
+
+let state
+times = []
+
+for (let i = 0; i < iterations; i++) {
+	state = null
+
+    const start = process.hrtime.bigint();
+
+    state = Resolver.getState(allStates, allStates.nextEvents[i % allStates.nextEvents.length].time)
+    // const states = Resolver.resolveAllStates(resolved)
+
+    // const state = Resolver.getState(states, 1597158621470 + 5000)
+
+    const end = process.hrtime.bigint();
+    times.push(Number(end - start)/1000000)
+}
+
+const sum3 = times.reduce((p, v) => p + v, 0)
+console.log(`Completed ${times.length} getState iterations in ${sum3}ms, averaging ${sum3 / times.length}ms`)
 
 delete resolved.statistics
 
