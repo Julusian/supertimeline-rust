@@ -1,0 +1,13 @@
+{
+    "package": "supertimeline-napi",
+    "devDependencies": {
+      "@napi-rs/cli": "^1.0.0"
+    },
+    "napi": {
+      "name": "supertl"
+    },
+    "scripts": {
+      "build": "napi build --release",
+      "build:debug": "napi build"
+    }
+  }

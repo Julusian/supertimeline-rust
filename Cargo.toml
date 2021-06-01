@@ -2,6 +2,7 @@
 
 members = [
     "supertimeline",
+    "supertimeline-napi",
     "supertimeline-json",
     "resolve-it"
 ]

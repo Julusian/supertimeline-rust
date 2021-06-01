@@ -21,6 +21,7 @@ pub use state::{
     ResolvedTimelineObject, ResolvedTimelineObjectInstance, TimelineState,
 };
 pub use util::Time;
+pub use caps::Cap;
 
 #[cfg(test)]
 mod tests {
