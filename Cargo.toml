@@ -4,5 +4,6 @@ members = [
     "supertimeline",
     "supertimeline-napi",
     "supertimeline-json",
+    "supertimeline-wasm",
     "resolve-it"
 ]
