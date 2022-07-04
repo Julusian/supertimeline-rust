@@ -22,6 +22,7 @@ pub use state::{
 };
 pub use util::Time;
 pub use caps::Cap;
+pub use state::TimelineLayerState;
 
 #[cfg(test)]
 mod tests {

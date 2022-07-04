@@ -15,6 +15,7 @@ use std::sync::Mutex;
 use velcro::hash_map;
 
 #[derive(PartialEq, Debug, Clone, PartialOrd)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub enum EventType {
     Start = 0,
     End = 1,
@@ -22,6 +23,7 @@ pub enum EventType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde_support", derive(Serialize, Deserialize))]
 pub struct NextEvent {
     pub event_type: EventType,
     pub time: Time,
