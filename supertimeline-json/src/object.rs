@@ -3,7 +3,7 @@ use supertimeline::IsTimelineKeyframe;
 use supertimeline::IsTimelineObject;
 use supertimeline::TimelineEnable;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct JsonTimelineObjectKeyframe {
     pub id: String,
     pub enable: Vec<TimelineEnable>,
@@ -28,7 +28,7 @@ impl IsTimelineKeyframe for JsonTimelineObjectKeyframe {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq,Clone)]
 pub struct JsonTimelineObject {
     pub id: String,
     // #[serde(deserialize_with = "some_enable")]

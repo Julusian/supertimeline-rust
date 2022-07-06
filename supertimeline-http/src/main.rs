@@ -3,6 +3,8 @@ use actix_web::{get, web, App, HttpServer, Responder, HttpResponse};
 use supertimeline::{NextEvent, resolve_all_states, resolve_timeline, ResolveOptions, Time, TimelineLayerState, TimelineObjectInstance};
 use supertimeline_json::object::JsonTimelineObject;
 use serde::{Deserialize, Serialize};
+use actix_web::middleware::Logger;
+use env_logger::Env;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -18,6 +20,7 @@ struct MyObj {
 #[derive(Debug, Serialize, Deserialize)]
 struct TimelineLayerState2{
     pub object_id: String,
+    pub raw_object: Option<JsonTimelineObject>,
     pub instance_id: Option<String>, // TODO - these both being Option<> is horrible
     pub instance: Option<TimelineObjectInstance>, // TODO - this is a bit heavy now?
     pub keyframes: Vec<TimelineLayerState2Keyframe>,
@@ -30,7 +33,7 @@ pub struct TimelineLayerState2Keyframe {
     pub keyframe_end_time: Option<Time>,
 }
 
-fn transform_state(st: Option<TimelineLayerState>)-> Option<TimelineLayerState2> {
+fn transform_state(timeline: &HashMap<String,JsonTimelineObject>, st: Option<TimelineLayerState>)-> Option<TimelineLayerState2> {
     if let Some(st) = st {
         let instance = {
             if let Some(inst) = st.instance {
@@ -39,10 +42,13 @@ fn transform_state(st: Option<TimelineLayerState>)-> Option<TimelineLayerState2>
             } else {
                 None
             }
-        } ;
+        };
+
+        let raw_object = timeline.get(&st.object_id).cloned();
 
         let mut res = TimelineLayerState2{
             object_id: st.object_id,
+            raw_object,
             instance_id: st.instance_id,
             instance,
             keyframes: vec!(),
@@ -75,11 +81,29 @@ struct Result {
     pub layers: HashMap<String, Vec<String>>,
 }
 
+fn dothing(timeline: &mut HashMap<String,JsonTimelineObject>, obj: &JsonTimelineObject) {
+    timeline.insert(obj.id.clone(), obj.clone());
+
+    if let Some(children) = &obj.children {
+        for child in children {
+            dothing(timeline,child);
+        }
+    }
+}
+
+
 /// This handler uses json extractor
 async fn index(item: web::Json<MyObj>) -> HttpResponse {
     let resolved = resolve_timeline(&item.objects, item.options.clone()).unwrap();
 
     let states = resolve_all_states(&resolved, None).unwrap();
+
+    let mut timelineObjMap = HashMap::new();
+
+    for obj in item.objects.iter() {
+        dothing(&mut timelineObjMap,obj);
+    
+    }
 
     let mut result = Result {
         state: HashMap::new(),
@@ -91,7 +115,7 @@ async fn index(item: web::Json<MyObj>) -> HttpResponse {
         let mut res = HashMap::new();
 
         for (time,st) in val {
-            res.insert(time, transform_state(st));
+            res.insert(time, transform_state(&timelineObjMap,st));
         }
 
         result.state.insert(id, res);
@@ -102,8 +126,14 @@ async fn index(item: web::Json<MyObj>) -> HttpResponse {
 
 #[actix_web::main] // or #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
+
+
     HttpServer::new(|| {
-        App::new().service(greet)
+        App::new()
+            .wrap(Logger::default())
+            .wrap(Logger::new("%a %{User-Agent}i"))
+            .service(greet)
             .service(web::resource("/").route(web::post().to(index)))
     })
         .bind(("127.0.0.1", 8080))?

@@ -16,7 +16,7 @@ const tl = JSON.parse(fs.readFileSync(filename).toString())
 
 function clean(obj) {
     // this is to make the test fair, as rust doesnt handle the content at all
-    obj.content = {}
+    // obj.content = {}
     if (obj.enable && !Array.isArray(obj.enable)) {
         obj.enable = [obj.enable]
     }
